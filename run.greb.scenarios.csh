@@ -85,7 +85,7 @@ if (-d work ) rm -f work/*
 # scenario number from list above
 set EXP=20
 # length of sensitivity experiment in years
-set YEARS=50
+set YEARS=100
 
 # for EXP = 35 choose here a value between -250 and 900 (with an increment of 25) for the obliquity:
 # => possible range: [-250 (= -25deg),  900 (= +90deg)], todays value 225 (=22.5deg)
@@ -216,11 +216,11 @@ ydef  48 linear -88.125 3.75
 zdef   1 linear 1 1
 tdef $MONTHS linear 15jan0  1mo
 vars 5
-tsurf  1 0 data 1
-tatmos 1 0 data 1
-tocean 1 0 data 1
-vapor  1 0 data 1
-ice    1 0 data 1
+tsurf  1 0 tsurf
+tatmos 1 0 tatmos
+tocean 1 0 tocean
+vapor  1 0 vapor
+ice    1 0 ice
 endvars
 EOF
 
@@ -232,12 +232,15 @@ ydef  1 linear -88.125 3.75
 zdef  $YEARS linear 1 1
 tdef  1 linear 15jan0  1mo
 vars 5
-tsurf  $YEARS 0 data 1
-tatmos $YEARS 0 data 1
-tocean $YEARS 0 data 1
-vapor  $YEARS 0 data 1
-ice    $YEARS 0 data 1
+tsurf  $YEARS 0 tsurf
+tatmos $YEARS 0 tatmos
+tocean $YEARS 0 tocean
+vapor  $YEARS 0 vapor
+ice    $YEARS 0 ice
 endvars
 EOF
 
+# convert .bin files into netcdf
+cdo -f nc import_binary ../output/scenario.gmean.${FILENAME}.ctl ../output/scenario.gmean.${FILENAME}.nc
+cdo -f nc import_binary ../output/scenario.${FILENAME}.ctl ../output/scenario.${FILENAME}.nc
 exit

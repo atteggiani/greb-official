@@ -2,7 +2,6 @@ import os
 import glob
 from cdo import *
 cdo = Cdo()
-
 # Get a list of all files in the output directory
 file_list = glob.glob('output/*')
 
