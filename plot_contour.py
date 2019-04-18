@@ -4,6 +4,7 @@ import os
 import numpy as np
 from cdo import Cdo
 import iris
+import iris.coord_categorisation
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import iris.quickplot as qplt
@@ -11,9 +12,62 @@ import iris.plot as iplt
 import cartopy.crs as ccrs
 cdo=Cdo()
 
-# pltvar  = 0 # (0=Tsurf, 1=Tatmos, 2=Tocean, 3=spec. humidity, 4=albedo, 5=precipitation (mm/day), 6=precip (kg m-2 s-1), 7=eva (kg m-2 s-1), 8=crcl (kg m-2 s-1))
-pltvar  = ('tsurf', 'tatmos', 'tocean', 'ice', 'spec. humidity', 'albedo', 'precip', 'eva', 'crcl')
-units = ('K','K','K','','','','kg m^-2 s^-1','kg m^-2 s^-1','kg m^-2 s^-1')
+# FUNCTIONS //==============================================//
+def parsevar(cubes):
+    # Correct values of output variables
+    fl=False
+    if not isinstance(cubes,list):
+        cubes = [cubes]
+        fl=True
+    varnames=[var.var_name for var in cubes]
+    for var in cubes:
+        var.long_name = None
+    # PRECIP
+    if 'precip' in varnames:
+        ind = varnames.index('precip')
+        cubes[ind]*=-1
+        cubes[ind].var_name='precip'
+    return cubes[0] if fl else cubes
+
+def annual_mean(cubes):
+    # Create annual mean
+
+    fl=False
+    if not isinstance(cubes,list):
+        cubes = [cubes]
+        fl=True
+    # get var names
+    varnames=[var.var_name for var in cubes]
+    # compute annual mean
+    amean=[iris.util.squeeze(var.collapsed('time',iris.analysis.MEAN)) for var in cubes]
+    # set var names
+    for var,name in zip(amean,varnames):
+        var.var_name = name+'.amean'
+    return amean[0] if fl else amean
+
+def seasonal_cycle(cubes):
+    # Create seasonal cycle (DJF-JJA)
+
+    fl=False
+    if not isinstance(cubes,list):
+        cubes = [cubes]
+        fl=True
+    # get var names
+    varnames=[var.var_name for var in cubes]
+    # add seasons
+    [iris.coord_categorisation.add_season(var, 'time', name='seasons', seasons=('djf', 'mam', 'jja', 'son')) for var in cubes]
+    # compute seasonal cycle
+    seasonmean = [iris.util.squeeze(var.aggregated_by('seasons',iris.analysis.MEAN)) for var in cubes]
+    djf = [var.extract(iris.Constraint(seasons='djf')) for var in seasonmean]
+    jja = [var.extract(iris.Constraint(seasons='jja')) for var in seasonmean]
+    cycle = [var1-var2 for var1,var2 in zip(djf,jja)]
+    # set var names
+    for var,name in zip(cycle,varnames):
+        var.var_name = name+'.seascyc'
+    return cycle[0] if fl else cycle
+
+# pltvar  = ('tsurf', 'tatmos', 'tocean', 'precip', 'eva', 'qcrcl')
+# units = ('K','K','K','kg m^-2 s^-1','kg m^-2 s^-1','kg m^-2 s^-1')
 # Reading file name
 # filename = sys.argv[1]
 filename = r'~/university/phd/greb-official/output/scenario.exp-230.forced.climatechange.ensemblemean.111'
@@ -29,12 +83,14 @@ cdo.import_binary(input = filename+'.ctl',    output = outfile,  options = '-f n
 
 # Importing the data cube
 data = iris.load(outfile)
-varnames=[var.var_name for var in data]
-# varnames.index('tatmos')
+data = parsevar(data)
+# varnames=[var.var_name for var in data]
 
 # Create annual mean
-amean=[iris.util.squeeze(var.collapsed('time',iris.analysis.MEAN)) for var in data]
+amean=annual_mean(data)
+
 # Create seasonal cycle (DJF-JJA)
+cycle=seasonal_cycle(data)
 
 # # plot annual mean
 # cmap=cm.seismic
@@ -53,28 +109,143 @@ amean=[iris.util.squeeze(var.collapsed('time',iris.analysis.MEAN)) for var in da
 
 # Plot annual mean for 'PRECIP'
 ext = 'png'
-ind=varnames.index('precip')
-var=amean[ind]*-86400
+ind=[var.var_name for var in data].index('precip')
+var=amean[ind]*86400
 units = 'mm/day'
-bound = range(0,12,2)
+cmaplev = np.arange(0,12)
+cbticks = np.arange(0,12,2)
+cmap = cm.GnBu
+varname = 'precip'
+tit = 'Precipitation'
+
 plt.figure(figsize=(12, 8))
 plt.subplot(111,projection=ccrs.Robinson())
-iplt.contourf(var, 9,cmap=cm.GnBu)
-# Add coastlines to the map
+iplt.contourf(var, levels = cmaplev, cmap=cmap, extend='both')
 plt.gca().coastlines()
 plt.colorbar(orientation='horizontal',extend='both',label = units,
-            boundaries=bounds)
-
-plt.title('Precipitation')
+            ticks=cbticks)
+plt.title(tit)
 iplt.citation(name)
-outname = '.'.join(['precip','amean',ext])
+outname = '.'.join([varname,'amean',ext])
+plt.savefig(os.path.join(outdir,outname), format=ext, dpi=300)
+
+# Plot annual mean for 'EVA'
+ext = 'png'
+ind=[var.var_name for var in data].index('eva')
+var=amean[ind]*86400
+units = 'mm/day'
+cmaplev = np.arange(-8,9)
+cbticks = np.arange(-8,10,2)
+cmap = cm.bwr_r
+varname = 'eva'
+tit = 'Evaporation'
+
+plt.figure(figsize=(12, 8))
+plt.subplot(111,projection=ccrs.Robinson())
+iplt.contourf(var, levels = cmaplev, cmap=cmap, extend='both')
+plt.gca().coastlines()
+plt.colorbar(orientation='horizontal',extend='both',label = units,
+            ticks=cbticks)
+plt.title(tit)
+iplt.citation(name)
+outname = '.'.join([varname,'amean',ext])
+plt.savefig(os.path.join(outdir,outname), format=ext, dpi=300)
+
+# Plot annual mean for 'CRCL'
+ext = 'png'
+ind=[var.var_name for var in data].index('qcrcl')
+var=amean[ind]*86400
+units = 'mm/day'
+cmaplev = np.arange(-8,9)
+cbticks = np.arange(-8,10,2)
+cmap = cm.bwr_r
+varname = 'qcrcl'
+tit = 'Circulation'
+
+plt.figure(figsize=(12, 8))
+plt.subplot(111,projection=ccrs.Robinson())
+iplt.contourf(var, levels = cmaplev, cmap=cmap, extend='both')
+plt.gca().coastlines()
+plt.colorbar(orientation='horizontal',extend='both',label = units,
+            ticks=cbticks)
+plt.title(tit)
+iplt.citation(name)
+outname = '.'.join([varname,'amean',ext])
+plt.savefig(os.path.join(outdir,outname), format=ext, dpi=300)
+
+# ===============================================================
+# ===============================================================
+
+# Plot seasonal cycle for 'PRECIP'
+ext = 'png'
+ind=[var.var_name for var in cycle].index('precip_seascyc')
+var=cycle[ind]*86400
+units = 'mm/day'
+cmaplev = np.arange(-5,6)
+cbticks = np.arange(-4,6,2)
+cmap = cm.bwr_r
+varname = 'precip'
+tit = 'Precipitation Seasonal Cycle'
+plt.figure(figsize=(12, 8))
+plt.subplot(111,projection=ccrs.Robinson())
+iplt.contourf(var, levels = cmaplev, cmap=cmap, extend='both')
+plt.gca().coastlines()
+plt.colorbar(orientation='horizontal',extend='both',label = units,
+            ticks=cbticks)
+plt.title(tit)
+iplt.citation(name)
+outname = '.'.join([varname,'seascyc',ext])
+plt.savefig(os.path.join(outdir,outname), format=ext, dpi=300)
+
+# Plot seasonal cycle for 'EVA'
+ext = 'png'
+ind=[var.var_name for var in cycle].index('eva_seascyc')
+var=cycle[ind]*86400
+units = 'mm/day'
+cmaplev = np.arange(-8,9)
+cbticks = np.arange(-8,10,2)
+cmap = cm.bwr_r
+varname = 'eva'
+tit = 'Evaporation seasonal cycle'
+
+plt.figure(figsize=(12, 8))
+plt.subplot(111,projection=ccrs.Robinson())
+iplt.contourf(var, levels = cmaplev, cmap=cmap, extend='both')
+plt.gca().coastlines()
+plt.colorbar(orientation='horizontal',extend='both',label = units,
+            ticks=cbticks)
+plt.title(tit)
+iplt.citation(name)
+outname = '.'.join([varname,'seascyc',ext])
+plt.savefig(os.path.join(outdir,outname), format=ext, dpi=300)
+
+# Plot annual mean for 'QCRCL'
+ext = 'png'
+ind=[var.var_name for var in cycle].index('qcrcl_seascyc')
+var=cycle[ind]*86400
+units = 'mm/day'
+cmaplev = np.arange(-8,9)
+cbticks = np.arange(-8,10,2)
+cmap = cm.bwr_r
+varname = 'qcrcl'
+tit = 'Circulation seasonal cycle'
+
+plt.figure(figsize=(12, 8))
+plt.subplot(111,projection=ccrs.Robinson())
+iplt.contourf(var, levels = cmaplev, cmap=cmap, extend='both')
+plt.gca().coastlines()
+plt.colorbar(orientation='horizontal',extend='both',label = units,
+            ticks=cbticks)
+plt.title(tit)
+iplt.citation(name)
+outname = '.'.join([varname,'seascyc',ext])
 plt.savefig(os.path.join(outdir,outname), format=ext, dpi=300)
 
 # Deleting netCDF file after analysis
 # os.remove(outfile)
 
 # def parsecvar(varlist):
-#     pltvar  = ('tsurf', 'tatmos', 'tocean', 'precip', 'eva', 'crcl')
+#     pltvar  = ('tsurf', 'tatmos', 'tocean', 'precip', 'eva', 'qcrcl')
 #     ind = [pltvar.index(var) if var in pltvar else np.nan for var in varlist]
 #     # if var not in pltvar:
 #     #     Warning("'"+var+"' is not a recognized variable")
