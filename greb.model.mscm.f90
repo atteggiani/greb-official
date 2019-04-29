@@ -123,7 +123,7 @@ module mo_physics
 !+++++++++++++++++++++++++++++++++++++++
 
   use mo_numerics
-  integer  :: log_exp   = 0              ! process control logics for expiments (see header)
+  integer  :: log_exp   = 0              ! process control logics for experiments (see header)
 ! deconstruct mean state (dmc) switches
   integer  :: log_cloud_dmc   = 1              ! process control clouds
   integer  :: log_ocean_dmc   = 1              ! process control ocean
