@@ -1,5 +1,6 @@
 # Libraries
 import sys
+import warnings
 import os
 import numpy as np
 from cdo import Cdo
@@ -10,7 +11,10 @@ import matplotlib.cm as cm
 import iris.quickplot as qplt
 import iris.plot as iplt
 import cartopy.crs as ccrs
-cdo=Cdo()
+
+# Ignore warnings
+if not sys.warnoptions:
+    warnings.simplefilter("ignore")
 
 # CLASSES and FUNCTIONS //==============================================//
 def annual_mean(cubes):
@@ -222,6 +226,21 @@ def parsevar(cubes):
         cubes[ind]*=86400
         cubes[ind].var_name=id
         cubes[ind].units='mm/day'
+    # TSURF
+    id = 'tsurf'
+    if id in varnames:
+        ind = varnames.index(id)
+        cubes[ind].units='K'
+    # TATMOS
+    id = 'tatmos'
+    if id in varnames:
+        ind = varnames.index(id)
+        cubes[ind].units='K'
+    # TOCEAN
+    id = 'tocean'
+    if id in varnames:
+        ind = varnames.index(id)
+        cubes[ind].units='K'
     return cubes[0] if fl else cubes
 
 def plot_annual_mean(cubes,outpath=None):
@@ -349,11 +368,13 @@ def plot_seasonal_cycle(cubes,outpath=None):
                              cbticks = np.arange(-10,10+2,2),
                              tit = 'Circulation'+txt). \
                              to_seasonal_cycle().plot(outpath)
+# /============================================================================/
+# CODE
+# /============================================================================/
 
-# units = ('K','K','K','kg m^-2 s^-1','kg m^-2 s^-1','kg m^-2 s^-1')
 # Reading file name
-# filename = sys.argv[1]
-filename = r'~/university/phd/greb-official/output/scenario.exp-230.forced.climatechange.ensemblemean.111'
+filename = sys.argv[1]
+# filename = r'~/university/phd/greb-official/output/scenario.exp-230.forced.climatechange.ensemblemean.111'
 name = os.path.split(filename)[1]
 outfile = filename + '.nc'
 
@@ -362,6 +383,9 @@ outdir=os.path.join(os.getcwd(),'figures',name)
 os.makedirs(outdir,exist_ok=True)
 
 # Converting bin file to netCDF
+print(filename)
+print('Converting binary file to netCDF...')
+cdo = Cdo() # Initialize CDO
 cdo.import_binary(input = filename+'.ctl', output = outfile, options = '-f nc')
 
 # Importing the data cube
@@ -369,5 +393,12 @@ data = iris.load(outfile)
 data = parsevar(data)
 
 #  Plotting data countour
+print('Saving annual mean contours...')
 plot_annual_mean(data,outpath=outdir)
+print('Saving seasonal cycle contours...')
 plot_seasonal_cycle(data,outpath=outdir)
+
+# Delete netCDF file
+print('Deleting netCDF file...')
+os.remove(outfile)
+print('Done!!')

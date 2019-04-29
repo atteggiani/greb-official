@@ -51,7 +51,7 @@ if (-d work ) rm -f work/*
 #
 #
 #  EXP = 230 run a climate change experiment with forced boundary conditions
-#            (surface temperature, hodrizontal winds and omega) of the CMIP5
+#            (surface temperature, horizontal winds and omega) of the CMIP5
 #            rcp85 ensemble mean response
 #
 #  EXP = 240 & 241 run a El Nino (La Nina) experiment with forced boundary conditions
@@ -83,7 +83,7 @@ if (-d work ) rm -f work/*
 
 # settings for scenario
 # scenario number from list above
-set EXP=230
+set EXP=99
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
@@ -260,9 +260,5 @@ qcrcl 1 0 qcrcl
 endvars
 EOF
 
-# echo ' '
-# echo 'Convert output files to netcdf?'
-# cd ../output
-# sh ctl2nc.sh
-
+python ~/university/phd/greb-official/plot_contour.py ../output/scenario.${FILENAME}
 exit
