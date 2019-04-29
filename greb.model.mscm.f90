@@ -178,7 +178,7 @@ module mo_physics
   real :: ct_sens   = 22.5                         ! coupling for sensible heat
   real :: da_ice    = 0.25                         ! albedo diff for ice covered points
   real :: a_no_ice  = 0.1                          ! albedo for non-ice covered points
-  real :: a_cloud   = 0.35                         ! albedo for clouds
+  real :: a_cloud   = 0.35                       ! albedo for clouds
   real :: Tl_ice1   = 273.15-10.                   ! temperature range of land snow-albedo feedback
   real :: Tl_ice2   = 273.15                       ! temperature range of land snow-albedo feedback
   real :: To_ice1   = 273.15-7.                    ! temperature range of ocean ice-albedo feedback
@@ -196,7 +196,7 @@ module mo_physics
   ! physical paramter (rainfall)
   real :: c_q, c_rq, c_omega, c_omegastd
 
-! parameter emisivity
+! parameter emissivity
   real, dimension(10) :: p_emi = (/9.0721, 106.7252, 61.5562, 0.0179, 0.0028,     &
 &                                             0.0570, 0.3462, 2.3406, 0.7032, 1.0662/)
 
@@ -307,7 +307,7 @@ subroutine greb_model
 ! initialize fields
   Ts_ini   = Tclim(:,:,nstep_yr)                          ! initial value temp. surf
   Ta_ini   = Ts_ini                                       ! initial value atm. temp.
-  To_ini   = Toclim(:,:,nstep_yr)                         ! initial value temp. surf
+  To_ini   = Toclim(:,:,nstep_yr)                         ! initial value temp. ocean
   q_ini    = qclim(:,:,nstep_yr)                          ! initial value atmos water vapor
 
   CO2_ctrl = 340.0
@@ -491,7 +491,7 @@ subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, 
   ! write output
   call output(it, ionum, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl)
   ! diagnostics: annual means plots
-  call diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, lw_surf, q_lat, q_sens)
+  call diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
 
 end subroutine time_loop
 
@@ -585,7 +585,7 @@ subroutine  qflux_correction(CO2_ctrl, Ts1, Ta1, q1, To1)
     ! sea ice heat capacity
     call seaice(Ts0)
     ! diagnostics: annual means plots
-    call diagonstics(it, 0.0, CO2_ctrl, ts0, ta0, to0, q0, ice_cover, sw, lw_surf, q_lat, q_sens)
+    call diagonstics(it, 0.0, CO2_ctrl, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
     ! memory
     Ts1=Ts0; Ta1=Ta0; q1=q0;  To1=To0;
 
@@ -659,7 +659,7 @@ subroutine LWradiation(Tsurf, Tair, q, CO2, LWsurf, LWair_up, LWair_down, em)
 &                           log_atmos_dmc, co2_part
 
 ! declare temporary fields
-  real, dimension(xdim,ydim)  :: Tsurf, Tair, q, LWsurf, LWair, e_co2, e_cloud,   &
+  real, dimension(xdim,ydim)  :: Tsurf, Tair, q, LWsurf, e_co2, e_cloud,   &
 &                                LWair_up, LWair_down, e_vapor, em
 
 
@@ -1368,7 +1368,7 @@ subroutine forcing(it, year, CO2, Tsurf)
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++
-subroutine diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, lw_surf, q_lat, q_sens)
+subroutine diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
 !+++++++++++++++++++++++++++++++++++++++
 !    diagonstics plots
 

@@ -214,7 +214,7 @@ if ( $EXP == 100 ) set FILENAME=exp-${EXP}.${CO2input}
 if ( $EXP == 230 ) set FILENAME=exp-${EXP}.forced.climatechange.ensemblemean.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 240 ) set FILENAME=exp-${EXP}.forced.elnino.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 241 ) set FILENAME=exp-${EXP}.forced.lanina.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
-
+set FILENAME = ${FILENAME}.modified
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin
 mv scenario.gmean.bin ../output/scenario.gmean.${FILENAME}.bin

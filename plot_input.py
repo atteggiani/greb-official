@@ -11,21 +11,20 @@ import matplotlib.cm as cm
 import iris.quickplot as qplt
 import iris.plot as iplt
 import cartopy.crs as ccrs
-
-from climate_module import * # Import self defined classes and function
+from climate_module import *
 
 # Ignore warnings
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
 
 # Reading file name
-filename = sys.argv[1]
-# filename = r'~/university/phd/greb-official/output/scenario.exp-230.forced.climatechange.ensemblemean.111'
+# filename = sys.argv[1]
+filename = r'~/university/phd/greb-official/input/solar_radiation.clim'
 name = os.path.split(filename)[1]
 outfile = filename + '.nc'
 
 # Setting figures output directory
-outdir=os.path.join('../figures',name)
+outdir=os.path.join('../input/figures',name)
 os.makedirs(outdir,exist_ok=True)
 
 # Converting bin file to netCDF
@@ -36,7 +35,8 @@ cdo.import_binary(input = filename+'.ctl', output = outfile, options = '-f nc')
 
 # Importing the data cube
 data = iris.load(outfile)
-data = parsevar(data)
+data = data[0]
+data
 
 #  Plotting data countour
 print('Saving annual mean contours...')
