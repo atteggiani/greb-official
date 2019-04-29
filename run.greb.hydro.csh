@@ -5,11 +5,12 @@
 # author: Tobias Bayr and Dietmar Dommenget
 
 # create work directory if does not already exist
-if (! -d work ) mkdir work
-
+if (! -d work ) then
+    mkdir work
+else
 # else clean up work directory
-if (-d work ) rm -f work/*
-
+    rm -f work/*
+endif
 
 # possible sensitivity experiments and suggested/maximum experiment length in years
 #
@@ -83,7 +84,7 @@ if (-d work ) rm -f work/*
 
 # settings for scenario
 # scenario number from list above
-set EXP=99
+set EXP=230
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
@@ -260,5 +261,5 @@ qcrcl 1 0 qcrcl
 endvars
 EOF
 
-python ~/university/phd/greb-official/plot_contour.py ../output/scenario.${FILENAME}
+python ../plot_contour.py ../output/scenario.${FILENAME}
 exit

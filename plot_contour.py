@@ -379,11 +379,11 @@ name = os.path.split(filename)[1]
 outfile = filename + '.nc'
 
 # Setting figures output directory
-outdir=os.path.join(os.getcwd(),'figures',name)
+outdir=os.path.join('../figures',name)
 os.makedirs(outdir,exist_ok=True)
 
 # Converting bin file to netCDF
-print(filename)
+print('\nFILENAME: '+ name)
 print('Converting binary file to netCDF...')
 cdo = Cdo() # Initialize CDO
 cdo.import_binary(input = filename+'.ctl', output = outfile, options = '-f nc')
