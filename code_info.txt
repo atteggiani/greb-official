@@ -1,4 +1,10 @@
 GREB CODE INFO
+CONTROL RUN ==> Gets the external boundaries and runs the model without other
+                forcings. Applies flux control to variables.
+SCENARIO RUN ==> With the flux control taken from the CONTROL RUN runs the model
+                 with the other forcings (e.g. 2xCO2) based on the experiment
+                 number (log_exp).
+
 ===============================================================================
 - CLOUD COVERAGE --> cldclim
 Read from 'isccp.cloud_cover.clim.bin'

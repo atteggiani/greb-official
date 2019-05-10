@@ -10,7 +10,7 @@ if (! -d work ) then
 else
 # else clean up work directory
     rm -f work/*
-endif
+# endif
 
 # possible sensitivity experiments and suggested/maximum experiment length in years
 #
@@ -59,6 +59,7 @@ endif
 #            (surface temperature, hodrizontal winds and omega) of the ERA-Interim
 #            composite mean response
 #
+#  EXP = 930 Geo-Engineering experiment with external artificial clouds
 #
 # some general remarks to the sensitivity experiments:
 # - all scenarios will start in 1950
@@ -84,7 +85,7 @@ endif
 
 # settings for scenario
 # scenario number from list above
-set EXP=230
+set EXP=20
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
@@ -119,7 +120,6 @@ gfortran -Ofast -ffast-math -funroll-loops -fopenmp greb.model.mscm.f90 greb.she
 # ifort -assume byterecl -O3 -xhost -align all -fno-alias greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
 ### g95 compiler (other Linux)
 # g95 greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
-
 
 ###################
 # END USER INPUT! #
@@ -214,10 +214,15 @@ if ( $EXP == 100 ) set FILENAME=exp-${EXP}.${CO2input}
 if ( $EXP == 230 ) set FILENAME=exp-${EXP}.forced.climatechange.ensemblemean.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 240 ) set FILENAME=exp-${EXP}.forced.elnino.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 241 ) set FILENAME=exp-${EXP}.forced.lanina.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
-set FILENAME = ${FILENAME}.modified
+
+# set FILENAME = ${FILENAME}.mod
+
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin
 mv scenario.gmean.bin ../output/scenario.gmean.${FILENAME}.bin
+
+# rename control run output and move it to output folder
+# mv control.bin ../output/control.${FILENAME}.bin
 
 # calculate months of scenario run for header file
 @ MONTHS = $YEARS * 12
@@ -261,5 +266,25 @@ qcrcl 1 0 qcrcl
 endvars
 EOF
 
-python ../plot_contour.py ../output/scenario.${FILENAME}
+# control run
+cat >../output/control.${FILENAME}.ctl <<EOF
+dset ^control.${FILENAME}.bin
+undef 9.e27
+xdef  96 linear 0 3.75
+ydef  48 linear -88.125 3.75
+zdef   1 linear 1 1
+tdef 12 linear 15jan0  1mo
+vars 8
+tsurf  1 0 tsurf
+tatmos 1 0 tatmos
+tocean 1 0 tocean
+vapor  1 0 vapour
+ice    1 0 ice
+precip 1 0 precip
+eva 1 0 eva
+qcrcl 1 0 qcrcl
+endvars
+EOF
+
+python ../plot_contours.py ../output/scenario.${FILENAME}
 exit

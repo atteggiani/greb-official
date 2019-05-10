@@ -395,7 +395,7 @@ subroutine greb_model
   Ts1 = Ts_ini; Ta1 = Ta_ini; To1 = To_ini; q1 = q_ini;                   ! initialize fields
   year=1970; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
   do it=1, time_ctrl*nstep_yr                                             ! main time loop
-    call time_loop(it, isrec, year, CO2_ctrl, irec, mon, 101, Ts1, Ta1, q1, To1, Ts0,Ta0, q0, To0 )
+    call time_loop(it, isrec, year, CO2_ctrl, irec, mon, 101, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
     Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
     if (log_exp .eq. 1 .and. mod(it,nstep_yr) .eq. 0) year=year+1
   end do
@@ -437,7 +437,7 @@ if ( log_exp .ne. 1 .or. time_scnr .ne. 0 ) then
 
   do it=1, time_scnr*nstep_yr                                              ! main time loop
      call forcing(it, year, CO2, Ts1)
-     call time_loop(it,isrec, year, CO2, irec, mon, 102, Ts1, Ta1, q1, To1, Ts0,Ta0, q0, To0 )
+     call time_loop(it,isrec, year, CO2, irec, mon, 102, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
 
      Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
      if (mod(it,nstep_yr) == 0) year=year+1
@@ -448,7 +448,7 @@ end if !( log_exp .ne. 1 )
 end subroutine
 
 !+++++++++++++++++++++++++++++++++++++++
-subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, Ts0,Ta0, q0, To0)
+subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0)
 !+++++++++++++++++++++++++++++++++++++++
 ! main time loop
 
@@ -640,6 +640,7 @@ subroutine SWradiation(Tsurf, sw, ice_cover)
   if (log_ice  ==    0) a_surf = a_no_ice
 
 ! SW flux
+  a_surf = 0.*a_surf
   albedo=a_surf+a_atmos-a_surf*a_atmos
   forall (i=1:xdim)
      sw(i,:)=0.01*S0_var*SW_solar(:,ityr)*(1-albedo(i,:))
@@ -1423,26 +1424,25 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 &      .and. iunit == 101 ) then
      ndm=jday_mon(mon)*ndt_days
      if (it/float(ndt_days)  > 365*(time_ctrl-1)) then
-     if (log_exp .eq. 1 .or. log_exp .eq. 230 ) then
-     irec=irec+1;
-     write(iunit,rec=8*irec-7)  Tmm/ndm
-     write(iunit,rec=8*irec-6)  Tamm/ndm
-     write(iunit,rec=8*irec-5)  Tomm/ndm
-     write(iunit,rec=8*irec-4)   qmm/ndm
-     write(iunit,rec=8*irec-3)  icmm/ndm
-     write(iunit,rec=8*irec-2)  prmm/ndm
-     write(iunit,rec=8*irec-1) evamm/ndm
-     write(iunit,rec=8*irec) qcrclmm/ndm
-     else
-     Tmn_ctrl(:,:,mon)     =   Tmm/ndm
-     Tamn_ctrl(:,:,mon)    =  Tamm/ndm
-     Tomn_ctrl(:,:,mon)    =  Tomm/ndm
-     qmn_ctrl(:,:,mon)     =   qmm/ndm
-     icmn_ctrl(:,:,mon)    =  icmm/ndm
-     prmn_ctrl(:,:,mon)    =  prmm/ndm
-     evamn_ctrl(:,:,mon)   = evamm/ndm
-     qcrclmn_ctrl(:,:,mon) = qcrclmm/ndm
-     end if
+         if (log_exp .eq. 1 .or. log_exp .eq. 230 .or. log_exp .eq. 20) then
+             irec=irec+1;
+             write(iunit,rec=8*irec-7)  Tmm/ndm
+             write(iunit,rec=8*irec-6)  Tamm/ndm
+             write(iunit,rec=8*irec-5)  Tomm/ndm
+             write(iunit,rec=8*irec-4)   qmm/ndm
+             write(iunit,rec=8*irec-3)  icmm/ndm
+             write(iunit,rec=8*irec-2)  prmm/ndm
+             write(iunit,rec=8*irec-1) evamm/ndm
+             write(iunit,rec=8*irec) qcrclmm/ndm
+         end if
+         Tmn_ctrl(:,:,mon)     =   Tmm/ndm
+         Tamn_ctrl(:,:,mon)    =  Tamm/ndm
+         Tomn_ctrl(:,:,mon)    =  Tomm/ndm
+         qmn_ctrl(:,:,mon)     =   qmm/ndm
+         icmn_ctrl(:,:,mon)    =  icmm/ndm
+         prmn_ctrl(:,:,mon)    =  prmm/ndm
+         evamn_ctrl(:,:,mon)   = evamm/ndm
+         qcrclmn_ctrl(:,:,mon) = qcrclmm/ndm
      end if
      Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
      mon=mon+1; if (mon==13) mon=1
@@ -1455,34 +1455,43 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
      ndm=jday_mon(mon)*ndt_days
      irec=irec+1;
      if (log_exp .ge. 35 .and. log_exp .le. 37 ) then
-     write(iunit,rec=8*irec-7)   Tmm/ndm
-     write(iunit,rec=8*irec-6)  Tamm/ndm
-     write(iunit,rec=8*irec-5)  Tomm/ndm
-     write(iunit,rec=8*irec-4)   qmm/ndm
-     write(iunit,rec=8*irec-3)  icmm/ndm
-     write(iunit,rec=8*irec-2)  prmm/ndm
-     write(iunit,rec=8*irec-1) evamm/ndm
-     write(iunit,rec=8*irec) qcrclmm/ndm
+         write(iunit,rec=8*irec-7)   Tmm/ndm
+         write(iunit,rec=8*irec-6)  Tamm/ndm
+         write(iunit,rec=8*irec-5)  Tomm/ndm
+         write(iunit,rec=8*irec-4)   qmm/ndm
+         write(iunit,rec=8*irec-3)  icmm/ndm
+         write(iunit,rec=8*irec-2)  prmm/ndm
+         write(iunit,rec=8*irec-1) evamm/ndm
+         write(iunit,rec=8*irec) qcrclmm/ndm
 
      else
-     write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-5)  Tomm/ndm -Tomn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-4)   qmm/ndm -qmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-3)  icmm/ndm -icmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-2)  prmm/ndm -prmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-1) evamm/ndm -evamn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec) qcrclmm/ndm -qcrclmn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-5)  Tomm/ndm -Tomn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-4)   qmm/ndm -qmn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-3)  icmm/ndm -icmn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-2)  prmm/ndm -prmn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec-1) evamm/ndm -evamn_ctrl(:,:,mon)
+         ! write(iunit,rec=8*irec) qcrclmm/ndm -qcrclmn_ctrl(:,:,mon)
 
-     iyrec=floor(float((irec-1)/12))
-     write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
-     write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
-     write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
-     write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
-     write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
-     write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
-     write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
-     write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
+         write(iunit,rec=8*irec-7)   Tmm/ndm
+         write(iunit,rec=8*irec-6)  Tamm/ndm
+         write(iunit,rec=8*irec-5)  Tomm/ndm
+         write(iunit,rec=8*irec-4)   qmm/ndm
+         write(iunit,rec=8*irec-3)  icmm/ndm
+         write(iunit,rec=8*irec-2)  prmm/ndm
+         write(iunit,rec=8*irec-1) evamm/ndm
+         write(iunit,rec=8*irec) qcrclmm/ndm
+
+         iyrec=floor(float((irec-1)/12))
+         write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
+         write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
+         write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
+         write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
+         write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
+         write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
+         write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
+         write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
      end if
      Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
      mon=mon+1; if (mon==13) mon=1
@@ -1502,10 +1511,10 @@ real, dimension(xdim,ydim) 	:: data, w
 real, dimension(ydim)		:: lat
 
 do i=1,ydim
-lat(i) = -90-(dlat*0.5)+i*dlat
+    lat(i) = -90-(dlat*0.5)+i*dlat
 end do
 do i=1,xdim
-w(i,:) = cos(2.*3.14159*lat/360.)
+    w(i,:) = cos(2.*3.14159*lat/360.)
 end do
 
 gmean = sum(data*w)/sum(w)

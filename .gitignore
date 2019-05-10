@@ -4,5 +4,7 @@
 *.mod
 work/
 output/*
-figures/
+figures*
 input/figures/
+__pycache__
+code_info.txt
