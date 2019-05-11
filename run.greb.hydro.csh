@@ -10,7 +10,7 @@ if (! -d work ) then
 else
 # else clean up work directory
     rm -f work/*
-# endif
+endif
 
 # possible sensitivity experiments and suggested/maximum experiment length in years
 #
@@ -59,7 +59,7 @@ else
 #            (surface temperature, hodrizontal winds and omega) of the ERA-Interim
 #            composite mean response
 #
-#  EXP = 930 Geo-Engineering experiment with external artificial clouds
+#  EXP = 930 Geo-Engineering experiment with artificial clouds forcing
 #
 # some general remarks to the sensitivity experiments:
 # - all scenarios will start in 1950
@@ -85,7 +85,10 @@ else
 
 # settings for scenario
 # scenario number from list above
-set EXP=20
+set EXP=930
+
+# Setting flag for saving control output (1 = save control, 0 = don't save control)
+@ output_control=1
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
@@ -110,6 +113,10 @@ set DRAD=0
 
 # for EXP='100', give here the name of input CO2 forcing data set without '.txt'
 set CO2input=none
+
+# for EXP = 930, give the name of input binary file containing artificial clouds
+# (with or without .bin), if not using the default one '../input/cld_artificial.bin'
+set cld_artificial=none
 
 ### compile GREB model (uncomment one of these three options)
 ### gfortran compiler (Linux (e.g. Ubuntu), Unix or MacBook Air)
@@ -156,6 +163,18 @@ if ( $EXP == 99 ) set CO2='../input/ipcc.scenario.rcp85.forcing.txt'
 if ( $EXP == 100 ) set CO2='../input/'${CO2input}'.txt'
 # link CO2 forcing file
 ln -s $CO2 co2forcing
+
+# link artificial clouds forcing file for geo-engineering experiment
+if ($EXP == 930) then
+    if ($cld_artificial == none) then
+        set cld_artificial='../input/cld_artificial.bin'
+    else
+        if ($cld_artificial:e != 'bin') set cld_artificial=${cld_artificial}.bin
+    endif
+endif
+    ln -s $cld_artificial cldart
+    # get name for output file
+    set artcldname = `basename $cld_artificial:r`
 
 #  generate namelist
 cat >namelist <<EOF
@@ -214,15 +233,12 @@ if ( $EXP == 100 ) set FILENAME=exp-${EXP}.${CO2input}
 if ( $EXP == 230 ) set FILENAME=exp-${EXP}.forced.climatechange.ensemblemean.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 240 ) set FILENAME=exp-${EXP}.forced.elnino.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 241 ) set FILENAME=exp-${EXP}.forced.lanina.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
-
+if ( $EXP == 930 ) set FILENAME=exp-${EXP}.geoeng.${artcldname}
 # set FILENAME = ${FILENAME}.mod
 
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin
 mv scenario.gmean.bin ../output/scenario.gmean.${FILENAME}.bin
-
-# rename control run output and move it to output folder
-# mv control.bin ../output/control.${FILENAME}.bin
 
 # calculate months of scenario run for header file
 @ MONTHS = $YEARS * 12
@@ -267,7 +283,10 @@ endvars
 EOF
 
 # control run
-cat >../output/control.${FILENAME}.ctl <<EOF
+if ($output_control) then
+# rename control run output and move it to output folder
+    mv control.bin ../output/control.${FILENAME}.bin
+    cat >../output/control.${FILENAME}.ctl <<EOF
 dset ^control.${FILENAME}.bin
 undef 9.e27
 xdef  96 linear 0 3.75
@@ -285,6 +304,7 @@ eva 1 0 eva
 qcrcl 1 0 qcrcl
 endvars
 EOF
+endif
 
 python ../plot_contours.py ../output/scenario.${FILENAME}
 exit

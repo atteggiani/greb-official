@@ -3,9 +3,11 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
 # Reading file namelistry:
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2.mod'
-filename = read_input(filename)
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-230.forced.climatechange.ensemblemean.111'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.exp-20.2xCO2'
+
+filename = read_input(filename)
+filename_base = check_control(filename)[1] if check_control(filename)[0] else filename_base
 filename_base = read_input(filename_base,2)
 
 name = os.path.split(filename)[1]

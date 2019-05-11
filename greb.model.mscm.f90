@@ -90,6 +90,7 @@
 !
 !  log_exp = 100 run model with your own CO2 input file
 !
+!  log_exp = 930 runs the model with your own artificial clouds forcing
 !+++++++++++++++++++++++++++++++++++++++
 module mo_numerics
 !+++++++++++++++++++++++++++++++++++++++
@@ -203,7 +204,7 @@ module mo_physics
 ! declare climate fields
   real, dimension(xdim,ydim)          ::  z_topo, glacier,z_ocean
   real, dimension(xdim,ydim,nstep_yr) ::  Tclim, uclim, vclim, omegaclim, omegastdclim, wsclim
-  real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim
+  real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim, cldclim_artificial
   real, dimension(xdim,ydim,nstep_yr) ::  TF_correct, qF_correct, ToF_correct, swetclim, dTrad
   real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr
   real, dimension(xdim,ydim)          ::  co2_part      = 1.0
@@ -1365,7 +1366,8 @@ subroutine forcing(it, year, CO2, Tsurf)
 ! Forced ENSO run
   if( log_exp .eq. 240 .or. log_exp .eq. 241 ) Tsurf = Tclim(:,:,ityr)  ! Keep temp on external boundary condition
 
-
+! Geo-engineering experiment with artificial clouds
+  ! if( log_exp .eq. 930 ) cldclim = cldclim_artificial
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++
@@ -1424,7 +1426,8 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 &      .and. iunit == 101 ) then
      ndm=jday_mon(mon)*ndt_days
      if (it/float(ndt_days)  > 365*(time_ctrl-1)) then
-         if (log_exp .eq. 1 .or. log_exp .eq. 230 .or. log_exp .eq. 20) then
+         if (log_exp .eq. 1 .or. log_exp .eq. 230 &
+&            .or. log_exp .eq. 20 .or. log_exp .eq. 930) then
              irec=irec+1;
              write(iunit,rec=8*irec-7)  Tmm/ndm
              write(iunit,rec=8*irec-6)  Tamm/ndm

@@ -76,13 +76,13 @@ read(21,rec=1)  sw_solar_ctrl
 
 ! read scenario solar forcing for paleo scenarios or oribital forcings
 if ( log_exp .eq. 30 .or. log_exp .eq. 31 .or. log_exp .eq. 35 .or. log_exp .eq. 36 ) then
-open(25,file='solar_scenario', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
-read(25,rec=1)  sw_solar_scnr
+    open(25,file='solar_scenario', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
+    read(25,rec=1)  sw_solar_scnr
 end if
 
 ! open CO2 forcing file for IPCC RCP scenarios (CO2 is read in forcing subroutine)
 if ( log_exp .ge. 96 .and. log_exp .le. 100 ) then
-open(26,file='co2forcing')
+    open(26,file='co2forcing')
 end if
 
 ! open external forcing for climate change (ensemble mean) (it is read in forcing subroutine)
@@ -127,6 +127,13 @@ if ( log_exp .eq. 240 .or. log_exp .eq. 241 ) then
   end do
 end if ! ENSO forcing
 
+! Geo-engineering forcing with artificial clouds
+if ( log_exp .eq. 930 ) then
+    open(27,file='cldart')
+    ! do n=1,nstep_yr
+    !     read(27,rec=n) cldclim_artificial(:,:,n)
+    ! end do
+end if
 
 ! start greb_model run
 print*,'% time flux/control/scenario: ', time_flux, time_ctrl, time_scnr
