@@ -18,6 +18,49 @@ def ignore_warnings():
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
+def create_bin(path,vars):
+    path,ext = os.path.splitext(path)
+    path = path+ext if ext not in ['.ctl','.bin'] else path
+    with open(path+'.bin','wb') as f:
+        for v in vars: f.write(v)
+
+def create_ctl(path, varnames = ['clouds'], xdef = 96, ydef = 48, zdef = 1,
+               tdef = 730):
+    nvars = len(varnames)
+    path,ext = os.path.splitext(path)
+    path = path+ext if ext not in ['.ctl','.bin'] else path
+    name = os.path.split(path)[1]+'.bin'
+    with open(path+'.ctl','w+') as f:
+        f.write('dset ^{}\n'.format(name))
+        f.write('undef 9.e27\n')
+        f.write('xdef  {} linear 0 3.75\n'.format(xdef))
+        f.write('ydef  {} linear -88.125 3.75\n'.format(ydef))
+        f.write('zdef   {} linear 1 1\n'.format(zdef))
+        f.write('tdef {} linear 00:00Z1jan2000  12hr\n'.format(tdef))
+        f.write('vars {}\n'.format(nvars))
+        for v in varnames:
+            f.write('{}  1 0 data 1\n'.format(v))
+        f.write('endvars\n')
+        
+def create_bin_ctl(path,vars):
+    if not isinstance(vars,dict):
+        raise Exception('vars must be a Dictionary type in the form: ' +
+                        '{"namevar1":var1,"namevar2":var2,...,"namevarN":varN}')
+    varnames = list(vars.keys())
+    nvars = len(varnames)
+    varvals = list(vars.values())
+    l=[v.shape for v in varvals]
+    if not ( l.count(l[0]) == len(l) ):
+        raise Exception('var1,var2,...,varN must be of the same size')
+    if len(l[0]) == 3:
+        dt,dx,dy = l[0]
+        dz = 1
+    else:
+        raise Exception('CREATE_BIN supports only 2D (TxMxN) time series')
+    # WRITE CTL FILE
+    create_ctl(path, varnames = varnames, xdef=dx, ydef=dy, zdef=dz, tdef=dt)
+    create_bin(path,vars = varvals)
+
 def read_input(filename = None, argvar=1):
     try:
         input = sys.argv[argvar]
@@ -237,23 +280,26 @@ class plot_param:
     def get_flag(self):
         return self.flag
 
-    def plot(self, outpath = None, ax = None, projection = ccrs.Robinson()):
+    def plot(self, outpath = None, ax = None, projection = ccrs.Robinson(),
+             coast_param = {},
+             land_param = {'edgecolor':'face', 'facecolor':'black'},
+             title_param = {},
+             save_param = {'dpi':300, 'bbox_inches':'tight'}):
         # plt.figure(figsize=(12, 8))
         plt.axes(projection=projection) if ax is None else plt.axes(ax)
         iplt.contourf(self.get_cube(), levels = self.get_cmaplev(), cmap = self.get_cmap(),
                       extend=self.get_cbextmode())
-        plt.gca().coastlines()
+        plt.gca().add_feature(cfeature.COASTLINE,**coast_param)
         if self.get_defname() == 'tocean':
             plt.gca().add_feature(cfeature.NaturalEarthFeature('physical',
-                           'land', '110m', edgecolor='face', facecolor='black'))
+                           'land', '110m', **land_param))
         plt.colorbar(orientation='horizontal',extend = self.get_cbextmode(),
                      label = self.get_units(), ticks = self.get_cbticks())
-        plt.title(self.get_tit())
+        plt.title(self.get_tit(),**title_param)
         # iplt.citation(name)
         if outpath is not None:
             plt.savefig(os.path.join(outpath,'.'.join([self.get_varname(),
-                        self.get_ext()])),  format = self.get_ext(), dpi = 300,
-                        bbox_inches='tight')
+                        self.get_ext()])),  format = self.get_ext(),**save_param)
 
     @classmethod
     def get_ext(cls):

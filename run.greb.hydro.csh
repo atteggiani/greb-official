@@ -88,7 +88,7 @@ endif
 set EXP=930
 
 # Setting flag for saving control output (1 = save control, 0 = don't save control)
-@ output_control=1
+@ output_control=0
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
