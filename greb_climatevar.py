@@ -13,22 +13,69 @@ import iris.plot as iplt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
+def input_file(filename,argv=1):
+    if (argv < 1 or not isinstance(argv,int)): raise Exception('argv must be an integer greater than 0')
+    try:
+        input=sys.argv[argv]
+        if ((argv == 1 and input == '-f') or (argv==2 and os.path.splitext(input)[1]=='.json')):
+            return filename
+        else:
+            return input
+    except(IndexError): return filename
+
+def plot_artificial_clouds(filename,outpath=None):
+    filename = rmext(filename)
+    name=os.path.split(filename)[1]
+    if outpath is None:
+        outpath = '/Users/dmar0022/university/phd/greb-official/'+\
+                  'artificial_clouds/art_clouds_figures'
+        os.makedirs(outpath,exist_ok=True)
+    else:
+        if outpath: os.makedirs(outpath,exist_ok=True)
+        else: outpath = None
+    bin2netCDF(filename)
+    data=iris.util.squeeze(iris.load_cube(filename+'.nc'))
+    plot_param.from_cube(data[0,:,:],cmap=cm.Greys_r, varname = name,
+    cmaplev = np.arange(0,1+0.05,0.05),units = '',
+    cbticks = np.arange(0,1+0.1,0.1)).plot(projection = None,
+                      outpath = outpath, coast_param = {'edgecolor':[0,.5,0.3]})
+    plt.show()
+    os.remove(filename+'.nc')
+
 def ignore_warnings():
     # Ignore warnings
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
+def data_from_input(filename):
+    filename = rmext(filename)
+    with open(filename+'.ctl','r') as f:
+        a=f.read().split()
+    ind=a.index('vars')
+    dt = int(a[a.index('tdef')+1])
+    dx = int(a[a.index('xdef')+1])
+    dy = int(a[a.index('ydef')+1])
+    if a[ind+1] != '1': raise Exception('Input with more than one '+\
+                                     'variable not yet readable with this function')
+    key=[a[ind+2]]
+    with open(filename+'.bin','rb') as f:
+        val=[np.fromfile(f,dtype=np.float32).reshape(dt,dy,dx).transpose(0,2,1)]
+    return dict(zip(key,val))
+
+def rmext(filename):
+    path,ext = os.path.splitext(filename)
+    if ext not in ['.ctl','.bin']: path = path+ext
+    return path
+
 def create_bin(path,vars):
-    path,ext = os.path.splitext(path)
-    path = path+ext if ext not in ['.ctl','.bin'] else path
+    path = rmext(path)
     with open(path+'.bin','wb') as f:
         for v in vars: f.write(v)
 
 def create_ctl(path, varnames = ['clouds'], xdef = 96, ydef = 48, zdef = 1,
                tdef = 730):
+    path = rmext(path)
     nvars = len(varnames)
-    path,ext = os.path.splitext(path)
-    path = path+ext if ext not in ['.ctl','.bin'] else path
     name = os.path.split(path)[1]+'.bin'
     with open(path+'.ctl','w+') as f:
         f.write('dset ^{}\n'.format(name))
@@ -39,9 +86,9 @@ def create_ctl(path, varnames = ['clouds'], xdef = 96, ydef = 48, zdef = 1,
         f.write('tdef {} linear 00:00Z1jan2000  12hr\n'.format(tdef))
         f.write('vars {}\n'.format(nvars))
         for v in varnames:
-            f.write('{}  1 0 data 1\n'.format(v))
+            f.write('{0}  1 0 {0}\n'.format(v))
         f.write('endvars\n')
-        
+
 def create_bin_ctl(path,vars):
     if not isinstance(vars,dict):
         raise Exception('vars must be a Dictionary type in the form: ' +
@@ -52,35 +99,32 @@ def create_bin_ctl(path,vars):
     l=[v.shape for v in varvals]
     if not ( l.count(l[0]) == len(l) ):
         raise Exception('var1,var2,...,varN must be of the same size')
-    if len(l[0]) == 3:
-        dt,dx,dy = l[0]
-        dz = 1
-    else:
-        raise Exception('CREATE_BIN supports only 2D (TxMxN) time series')
+    if len(l[0]) != 3:
+        raise Exception('create_bin_ctl funcion supports only 2D (tdef x ydef x xdef) time series')
+    if 730 not in l[0]:
+        raise Exception('tdef must be 730')
+    if 96 not in l[0]:
+        raise Exception('xdef must be 96')
+    if 48 not in l[0]:
+        raise Exception('ydef must be 48')
+    dt=l[0].index(730)
+    dx=l[0].index(96)
+    dy=l[0].index(48)
+    if not (l[0][0]==730 and l[0][1]==48):
+        varvals = [v.transpose(dt,dy,dx) for v in varvals]
+    varvals=[np.float32(v.copy(order='C')) for v in varvals]
     # WRITE CTL FILE
-    create_ctl(path, varnames = varnames, xdef=dx, ydef=dy, zdef=dz, tdef=dt)
+    create_ctl(path, varnames = varnames)
+    # WRITE BIN FILE
     create_bin(path,vars = varvals)
 
-def read_input(filename = None, argvar=1):
-    try:
-        input = sys.argv[argvar]
-        if (argvar == 1 and input == '-f') or \
-                        (argvar == 2 and os.path.splitext(input)[1] == '.json'):
-            raise IndexError()
-    except IndexError:
-        input = filename
-    return input
-
 def bin2netCDF(file):
-    filename = os.path.splitext(file)[0] if os.path.splitext(file)[1] \
-                                                    in ['.bin','.ctl'] else file
-    if not os.path.isfile(filename+'.nc'):
-        cdo = Cdo() # Initialize CDO
-        cdo.import_binary(input = filename+'.ctl', output = filename+'.nc',
-                          options = '-f nc')
-def check_bin(file):
-    filename = os.path.splitext(file)[0] if os.path.splitext(file)[1] \
-                                                    in ['.bin','.ctl'] else file
+    filename = rmext(file)
+    cdo = Cdo() # Initialize CDO
+    cdo.import_binary(input = filename+'.ctl', output = filename+'.nc',
+                      options = '-f nc')
+def check_bin(filename):
+    filename = rmext(filename)
     return os.path.isfile(filename+'.bin')
 
 def check_control(scenario_file):
@@ -132,7 +176,7 @@ def seasonal_cycle(cubes):
                                         iris.analysis.MEAN)) for var in cubes]
     djf = [var.extract(iris.Constraint(seasons='djf')) for var in seasonmean]
     jja = [var.extract(iris.Constraint(seasons='jja')) for var in seasonmean]
-    cycle = [var1-var2 for var1,var2 in zip(djf,jja)]
+    cycle = [(var1-var2)/2 for var1,var2 in zip(djf,jja)]
     # set var name
     for var,name in zip(cycle,varnames):
         var.var_name = name+'.seascyc'
@@ -384,8 +428,8 @@ class plot_absolute(plot_param):
             self.set_tit('Atmospheric Temperature Annual Mean')
         elif self.get_flag() == 'seascyc':
             self.set_varname('tatmos.seascyc')
-            self.set_cmaplev(np.arange(-40,40+5,5))
-            self.set_cbticks(np.arange(-40,40+10,10))
+            self.set_cmaplev(np.arange(-20,20+2,2))
+            self.set_cbticks(np.arange(-20,20+4,4))
             self.set_tit('Atmospheric Temperature Seasonal Cycle')
         else:
             self.set_varname('tatmos')
@@ -405,8 +449,8 @@ class plot_absolute(plot_param):
             self.set_tit('Surface Temperature Annual Mean')
         elif flag == 'seascyc':
             self.set_varname('tsurf.seascyc')
-            self.set_cmaplev(np.arange(-40,40+5,5))
-            self.set_cbticks(np.arange(-40,40+10,10))
+            self.set_cmaplev(np.arange(-20,20+2,2))
+            self.set_cbticks(np.arange(-20,20+4,4))
             self.set_tit('Surface Temperature Seasonal Cycle')
         else:
             self.set_varname('tsurf')
@@ -426,8 +470,8 @@ class plot_absolute(plot_param):
             self.set_tit('Ocean Temperature Annual Mean')
         elif flag == 'seascyc':
             self.set_varname('tocean.seascyc')
-            self.set_cmaplev(np.arange(-1e-1,1e-1+1e-2,1e-2))
-            self.set_cbticks(np.arange(-1e-1,1e-1+2e-2,2e-2))
+            self.set_cmaplev(np.arange(-1,1+1e-1,1e-1))
+            self.set_cbticks(np.arange(-1,1+2e-1,2e-1))
             self.set_tit('Ocean Temperature Seasonal Cycle')
         else:
             self.set_varname('tocean')
@@ -448,8 +492,8 @@ class plot_absolute(plot_param):
         elif flag == 'seascyc':
             self.set_varname('precip.seascyc')
             self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(-8,8+1,1))
-            self.set_cbticks(np.arange(-8,8+2,2))
+            self.set_cmaplev(np.arange(-6,6+1,1))
+            self.set_cmaplev(np.arange(-6,6+1,1))
             self.set_cbextmode('both')
             self.set_tit('Precipitation Seasonal Cycle')
         else:
@@ -473,8 +517,8 @@ class plot_absolute(plot_param):
         elif flag == 'seascyc':
             self.set_varname('eva.seascyc')
             self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(-5,5+0.5,0.5))
-            self.set_cbticks(np.arange(-5,5+1,1))
+            self.set_cmaplev(np.arange(-3,3+0.5,0.5))
+            self.set_cbticks(np.arange(-3,3+0.5,0.5))
             self.set_cbextmode('both')
             self.set_tit('Evaporation Seasonal Cycle')
         else:
@@ -497,8 +541,8 @@ class plot_absolute(plot_param):
             self.set_tit('Circulation Annual Mean')
         elif flag == 'seascyc':
             self.set_varname('qcrcl.seascyc')
-            self.set_cmaplev(np.arange(-10,10+1,1))
-            self.set_cbticks(np.arange(-10,10+2,2))
+            self.set_cmaplev(np.arange(-6,6+1,1))
+            self.set_cmaplev(np.arange(-6,6+1,1))
             self.set_tit('Circulation Seasonal Cycle')
         else:
             self.set_varname('qcrcl')
@@ -508,7 +552,7 @@ class plot_absolute(plot_param):
 
     def vapor(self):
         flag = self.get_flag()
-        self.set_units('') # ADD UNITS!
+        self.set_units(' ') # ADD UNITS!
         if self.get_flag() == 'amean':
             self.set_varname('vapor.amean')
             self.set_cmap(cm.Blues)
@@ -533,10 +577,10 @@ class plot_absolute(plot_param):
 
     def ice(self):
         flag = self.get_flag()
-        self.set_units('')
+        self.set_units(' ')
         if self.get_flag() == 'amean':
             self.set_varname('ice.amean')
-            self.set_cmap(cm.Blues)
+            self.set_cmap(cm.Blues_r)
             self.set_cmaplev(np.arange(0,1+0.05,0.05))
             self.set_cbticks(np.arange(0,1+0.1,0.1))
             self.set_cbextmode('both')
@@ -544,13 +588,13 @@ class plot_absolute(plot_param):
         elif flag == 'seascyc':
             self.set_varname('ice.seascyc')
             self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.2,0.2))
+            self.set_cmaplev(np.arange(0,1+0.05,0.05))
+            self.set_cbticks(np.arange(0,1+0.1,0.1))
             self.set_cbextmode('both')
             self.set_tit('Ice Seasonal Cycle')
         else:
             self.set_varname('ice')
-            self.set_cmap(cm.Blues)
+            self.set_cmap(cm.Blues_r)
             self.set_cmaplev(12)
             self.set_cbextmode('both')
             self.set_tit('Ice')
@@ -564,6 +608,7 @@ class plot_absolute(plot_param):
             return self
 
 class plot_difference(plot_param):
+    txt = 'Anomaly'
     def tatmos(self):
         flag = self.get_flag()
         self.set_units('[K]')
@@ -571,18 +616,18 @@ class plot_difference(plot_param):
         self.set_cmap(cm.RdBu_r)
         if self.get_flag() == 'amean':
             self.set_varname('tatmos.amean')
-            self.set_tit('Atmospheric Temperature Annual Mean')
-            self.set_cmaplev(np.arange(-8,8+0.2,0.2))
+            self.set_tit('Atmospheric Temperature Annual Mean '+self.txt)
+            self.set_cmaplev(np.arange(-8,8+1,1))
             self.set_cbticks(np.arange(-8,8+1,1))
         elif self.get_flag() == 'seascyc':
             self.set_varname('tatmos.seascyc')
-            self.set_tit('Atmospheric Temperature Seasonal Cycle')
-            self.set_cmaplev(np.arange(-8,8+0.2,0.2))
-            self.set_cbticks(np.arange(-8,8+1,1))
+            self.set_tit('Atmospheric Temperature Seasonal Cycle '+self.txt)
+            self.set_cmaplev(np.arange(-4,4+0.5,0.5))
+            self.set_cbticks(np.arange(-4,4+1,1))
         else:
             self.set_varname('tatmos')
             self.set_cmaplev(12)
-            self.set_tit('Atmospheric Temperature')
+            self.set_tit('Atmospheric Temperature '+self.txt)
         return self
 
     def tsurf(self):
@@ -592,18 +637,18 @@ class plot_difference(plot_param):
         self.set_cmap(cm.RdBu_r)
         if flag == 'amean':
             self.set_varname('tsurf.amean')
-            self.set_tit('Surface Temperature Annual Mean')
-            self.set_cmaplev(np.arange(-8,8+0.2,0.2))
+            self.set_tit('Surface Temperature Annual Mean '+self.txt)
+            self.set_cmaplev(np.arange(-8,8+1,1))
             self.set_cbticks(np.arange(-8,8+1,1))
         elif flag == 'seascyc':
             self.set_varname('tsurf.seascyc')
-            self.set_tit('Surface Temperature Seasonal Cycle')
-            self.set_cmaplev(np.arange(-8,8+0.2,0.2))
-            self.set_cbticks(np.arange(-8,8+1,1))
+            self.set_tit('Surface Temperature Seasonal Cycle '+self.txt)
+            self.set_cmaplev(np.arange(-4,4+0.5,0.5))
+            self.set_cbticks(np.arange(-4,4+1,1))
         else:
             self.set_varname('tsurf')
             self.set_cmaplev(12)
-            self.set_tit('Surface Temperature')
+            self.set_tit('Surface Temperature '+self.txt)
         return self
 
     def tocean(self):
@@ -615,16 +660,16 @@ class plot_difference(plot_param):
             self.set_varname('tocean.amean')
             self.set_cmaplev(np.arange(-4,4+0.5,0.5))
             self.set_cbticks(np.arange(-4,4+1,1))
-            self.set_tit('Ocean Temperature Annual Mean')
+            self.set_tit('Ocean Temperature Annual Mean '+self.txt)
         elif flag == 'seascyc':
             self.set_varname('tocean.seascyc')
             self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.1,0.1))
-            self.set_tit('Ocean Temperature Seasonal Cycle')
+            self.set_cbticks(np.arange(-1,1+0.2,0.2))
+            self.set_tit('Ocean Temperature Seasonal Cycle '+self.txt)
         else:
             self.set_varname('tocean')
             self.set_cmaplev(12)
-            self.set_tit('Ocean Temperature')
+            self.set_tit('Ocean Temperature '+self.txt)
         return self
 
     def precip(self):
@@ -634,18 +679,18 @@ class plot_difference(plot_param):
         self.set_cmap(cm.RdBu_r)
         if self.get_flag() == 'amean':
             self.set_varname('precip.amean')
-            self.set_tit('Precipitation Annual Mean')
-            self.set_cmaplev(np.arange(-2,2+0.1,0.1))
-            self.set_cbticks(np.arange(-2,2+0.5,0.5))
+            self.set_tit('Precipitation Annual Mean '+self.txt)
+            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+            self.set_cbticks(np.arange(-2,2+0.4,0.4))
         elif flag == 'seascyc':
             self.set_varname('precip.seascyc')
-            self.set_tit('Precipitation Seasonal Cycle')
-            self.set_cmaplev(np.arange(-2,2+0.1,0.1))
-            self.set_cbticks(np.arange(-2,2+0.5,0.5))
+            self.set_tit('Precipitation Seasonal Cycle '+self.txt)
+            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+            self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
             self.set_varname('precip')
             self.set_cmaplev(12)
-            self.set_tit('Precipitation')
+            self.set_tit('Precipitation '+self.txt)
         return self
 
     def eva(self):
@@ -655,18 +700,18 @@ class plot_difference(plot_param):
         self.set_cmap(cm.RdBu_r)
         if self.get_flag() == 'amean':
             self.set_varname('eva.amean')
-            self.set_tit('Evaporation Annual Mean')
-            self.set_cmaplev(np.arange(-2,2+0.1,0.1))
-            self.set_cbticks(np.arange(-2,2+0.5,0.5))
+            self.set_tit('Evaporation Annual Mean '+self.txt)
+            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+            self.set_cbticks(np.arange(-2,2+0.4,0.4))
         elif flag == 'seascyc':
             self.set_varname('eva.seascyc')
-            self.set_tit('Evaporation Seasonal Cycle')
-            self.set_cmaplev(np.arange(-2,2+0.1,0.1))
-            self.set_cbticks(np.arange(-2,2+0.5,0.5))
+            self.set_tit('Evaporation Seasonal Cycle '+self.txt)
+            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+            self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
             self.set_varname('eva')
             self.set_cmaplev(12)
-            self.set_tit('Evaporation')
+            self.set_tit('Evaporation '+self.txt)
         return self
 
     def qcrcl(self):
@@ -676,58 +721,58 @@ class plot_difference(plot_param):
         self.set_cmap(cm.RdBu_r)
         if self.get_flag() == 'amean':
             self.set_varname('qcrcl.amean')
-            self.set_tit('Circulation Annual Mean')
-            self.set_cmaplev(np.arange(-2,2+0.1,0.1))
-            self.set_cbticks(np.arange(-2,2+0.5,0.5))
+            self.set_tit('Circulation Annual Mean '+self.txt)
+            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+            self.set_cbticks(np.arange(-2,2+0.4,0.4))
         elif flag == 'seascyc':
             self.set_varname('qcrcl.seascyc')
-            self.set_tit('Circulation Seasonal Cycle')
-            self.set_cmaplev(np.arange(-2,2+0.1,0.1))
-            self.set_cbticks(np.arange(-2,2+0.5,0.5))
+            self.set_tit('Circulation Seasonal Cycle '+self.txt)
+            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+            self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
             self.set_varname('qcrcl')
             self.set_cmaplev(12)
-            self.set_tit('Circulation')
+            self.set_tit('Circulation '+self.txt)
         return self
 
     def vapor(self):
         flag = self.get_flag()
-        self.set_units('') # ADD UNITS!
+        self.set_units(' ') # ADD UNITS!
         self.set_cbextmode('both')
         self.set_cmap(cm.RdBu_r)
         if self.get_flag() == 'amean':
             self.set_varname('vapor.amean')
-            self.set_tit('Specific Humidity Annual Mean')
-            self.set_cmaplev(np.arange(-5e-3,5e-3+1e-4,1e-4))
+            self.set_tit('Specific Humidity Annual Mean '+self.txt)
+            self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
             self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
         elif flag == 'seascyc':
             self.set_varname('vapor.seascyc')
-            self.set_tit('Specific Humidity Seasonal Cycle')
-            self.set_cmaplev(np.arange(-5e-3,5e-3+1e-4,1e-4))
+            self.set_tit('Specific Humidity Seasonal Cycle '+self.txt)
+            self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
             self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
         else:
             self.set_varname('vapor')
             self.set_cmaplev(12)
-            self.set_tit('Specific Humidity')
+            self.set_tit('Specific Humidity '+self.txt)
         return self
 
     def ice(self):
         flag = self.get_flag()
-        self.set_units('')
+        self.set_units(' ')
         self.set_cbextmode('both')
         self.set_cmap(cm.RdBu_r)
         if self.get_flag() == 'amean':
             self.set_varname('ice.amean')
-            self.set_tit('Ice Annual Mean')
+            self.set_tit('Ice Annual Mean '+self.txt)
             self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.1,0.1))
+            self.set_cbticks(np.arange(-1,1+0.2,0.2))
         elif flag == 'seascyc':
             self.set_varname('ice.seascyc')
-            self.set_tit('Ice Seasonal Cycle')
+            self.set_tit('Ice Seasonal Cycle '+self.txt)
             self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.1,0.1))
+            self.set_cbticks(np.arange(-1,1+0.2,0.2))
         else:
-            self.set_varname('ice')
+            self.set_varname('ice '+self.txt)
             self.set_cmaplev(12)
             self.set_tit('Ice')
         return self

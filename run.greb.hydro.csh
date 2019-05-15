@@ -115,8 +115,8 @@ set DRAD=0
 set CO2input=none
 
 # for EXP = 930, give the name of input binary file containing artificial clouds
-# (with or without .bin), if not using the default one '../input/cld_artificial.bin'
-set cld_artificial=none
+# (with or without .bin), if not using the default one '../input/cld.artificial.bin'
+set cld_artificial='../artificial_clouds/cld.artificial.amean'
 
 ### compile GREB model (uncomment one of these three options)
 ### gfortran compiler (Linux (e.g. Ubuntu), Unix or MacBook Air)
@@ -167,7 +167,7 @@ ln -s $CO2 co2forcing
 # link artificial clouds forcing file for geo-engineering experiment
 if ($EXP == 930) then
     if ($cld_artificial == none) then
-        set cld_artificial='../input/cld_artificial.bin'
+        set cld_artificial='../input/cld.artificial.bin'
     else
         if ($cld_artificial:e != 'bin') set cld_artificial=${cld_artificial}.bin
     endif

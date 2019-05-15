@@ -641,7 +641,7 @@ subroutine SWradiation(Tsurf, sw, ice_cover)
   if (log_ice  ==    0) a_surf = a_no_ice
 
 ! SW flux
-  a_surf = 0.*a_surf
+  a_surf = a_surf
   albedo=a_surf+a_atmos-a_surf*a_atmos
   forall (i=1:xdim)
      sw(i,:)=0.01*S0_var*SW_solar(:,ityr)*(1-albedo(i,:))
@@ -667,7 +667,7 @@ subroutine LWradiation(Tsurf, Tair, q, CO2, LWsurf, LWair_up, LWair_down, em)
 
   e_co2   = exp(-z_topo/z_air)*co2_part*CO2   ! CO2
   e_vapor = exp(-z_topo/z_air)*r_qviwv*q      ! water vapor
-  e_cloud = cldclim(:,:,ityr)                 ! clouds
+  e_cloud = cldclim(:,:,ityr)                ! clouds
 
 ! total
   em      = p_emi(4)*log( p_emi(1)*e_co2 +p_emi(2)*e_vapor +p_emi(3) ) +p_emi(7)   &
@@ -1266,8 +1266,11 @@ subroutine forcing(it, year, CO2, Tsurf)
 
   USE mo_numerics,    ONLY: xdim, ydim, ndays_yr, ndt_days, nstep_yr
   USE mo_physics,     ONLY: log_exp, sw_solar, sw_solar_ctrl, sw_solar_scnr,     &
-&                           co2_part, co2_part_scn, z_topo, ityr, Tclim
+&                           co2_part, co2_part_scn, z_topo, ityr, Tclim, cldclim,         &
+&                           cldclim_artificial
   USE mo_diagnostics,  ONLY: icmn_ctrl
+
+  ! IMPLICIT NONE
 
   ! input fields
   real, dimension(xdim,ydim)  :: Tsurf
@@ -1367,7 +1370,7 @@ subroutine forcing(it, year, CO2, Tsurf)
   if( log_exp .eq. 240 .or. log_exp .eq. 241 ) Tsurf = Tclim(:,:,ityr)  ! Keep temp on external boundary condition
 
 ! Geo-engineering experiment with artificial clouds
-  ! if( log_exp .eq. 930 ) cldclim = cldclim_artificial
+  if( log_exp .eq. 930 ) cldclim = cldclim_artificial
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++

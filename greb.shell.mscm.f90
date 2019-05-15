@@ -129,10 +129,11 @@ end if ! ENSO forcing
 
 ! Geo-engineering forcing with artificial clouds
 if ( log_exp .eq. 930 ) then
-    open(27,file='cldart')
-    ! do n=1,nstep_yr
-    !     read(27,rec=n) cldclim_artificial(:,:,n)
-    ! end do
+    open(27, file='cldart', ACCESS='DIRECT', FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    do n=1,nstep_yr
+        read(27,rec=n) cldclim_artificial(:,:,n)
+        ! print*, cldclim_artificial(1,1,n)
+    end do
 end if
 
 ! start greb_model run

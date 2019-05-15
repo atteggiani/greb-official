@@ -3,16 +3,17 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
 # Reading file namelistry:
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld_artificial'
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.amean'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
-
-filename = read_input(filename)
-# filename_base = check_control(filename)[1] if check_control(filename)[0] else filename_base
-filename_base = read_input(filename_base,2)
+filename = input_file(filename,1)
+filename_base = input_file(filename_base,2)
 
 name = os.path.split(filename)[1]
+print('\nSCENARIO_FILE: ' + name)
 outfile = filename + '.nc'
+
 name_base = os.path.split(filename_base)[1]
+print('BASE_FILE: ' + name_base)
 outfile_base = filename_base + '.nc'
 
 # Setting figures output directory
@@ -24,8 +25,6 @@ outdir_diff=os.path.join('/Users/dmar0022/university/phd/greb-official/figures',
 os.makedirs(outdir,exist_ok=True)
 os.makedirs(outdir_diff,exist_ok=True)
 
-print('\nFILE: ' + name)
-print('CONTROL_FILE: ' + name_base)
 # Converting bin file to netCDF
 print('Converting files to netCDF...')
 bin2netCDF(filename)

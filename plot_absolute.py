@@ -3,8 +3,8 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
 # Reading file name
-filename = r'/Users/dmar0022/university/phd/greb-official/output/control.exp-20.2xCO2'
-filename = read_input(filename)
+filename = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
+filename = input_file(filename)
 name = os.path.split(filename)[1]
 outfile = filename + '.nc'
 
