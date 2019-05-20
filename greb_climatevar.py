@@ -13,15 +13,24 @@ import iris.plot as iplt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
+def get_art_cloud_filename(filename):
+    txt='exp-930.geoeng.'
+    if txt in filename:
+        art_cloud_name = filename[filename.index(txt)+len(txt):]
+        return os.path.join('/Users/dmar0022/university/phd/greb-official/artificial_clouds',
+                           art_cloud_name)
+    else:
+       return None
+
 def input_file(filename,argv=1):
     if (argv < 1 or not isinstance(argv,int)): raise Exception('argv must be an integer greater than 0')
     try:
         input=sys.argv[argv]
         if ((argv == 1 and input == '-f') or (argv==2 and os.path.splitext(input)[1]=='.json')):
-            return filename
+            return rmext(filename)
         else:
-            return input
-    except(IndexError): return filename
+            return rmext(input)
+    except(IndexError): return rmext(filename)
 
 def plot_artificial_clouds(filename,outpath=None):
     filename = rmext(filename)
@@ -37,9 +46,8 @@ def plot_artificial_clouds(filename,outpath=None):
     data=iris.util.squeeze(iris.load_cube(filename+'.nc'))
     plot_param.from_cube(data[0,:,:],cmap=cm.Greys_r, varname = name,
     cmaplev = np.arange(0,1+0.05,0.05),units = '',
-    cbticks = np.arange(0,1+0.1,0.1)).plot(projection = None,
-                      outpath = outpath, coast_param = {'edgecolor':[0,.5,0.3]})
-    plt.show()
+    cbticks = np.arange(0,1+0.1,0.1)).plot(outpath = outpath,
+                        coast_param = {'edgecolor':[0,.5,0.3]},statistics=False)
     os.remove(filename+'.nc')
 
 def ignore_warnings():
@@ -64,7 +72,7 @@ def data_from_input(filename):
 
 def rmext(filename):
     path,ext = os.path.splitext(filename)
-    if ext not in ['.ctl','.bin']: path = path+ext
+    if ext not in ['.ctl','.bin','.']: path = path+ext
     return path
 
 def create_bin(path,vars):
@@ -328,7 +336,8 @@ class plot_param:
              coast_param = {},
              land_param = {'edgecolor':'face', 'facecolor':'black'},
              title_param = {},
-             save_param = {'dpi':300, 'bbox_inches':'tight'}):
+             save_param = {'dpi':300, 'bbox_inches':'tight'},
+             statistics=True):
         # plt.figure(figsize=(12, 8))
         plt.axes(projection=projection) if ax is None else plt.axes(ax)
         iplt.contourf(self.get_cube(), levels = self.get_cmaplev(), cmap = self.get_cmap(),
@@ -340,7 +349,10 @@ class plot_param:
         plt.colorbar(orientation='horizontal',extend = self.get_cbextmode(),
                      label = self.get_units(), ticks = self.get_cbticks())
         plt.title(self.get_tit(),**title_param)
-        # iplt.citation(name)
+        if statistics:
+            txt = 'gmean = {:.3f}\nsp_std = {:.3f}'.format(self.gmean(),self.std_spatial())
+            plt.text(1.05,1,txt,verticalalignment='top',horizontalalignment='right',
+                     transform=plt.gca().transAxes,fontsize=6)
         if outpath is not None:
             plt.savefig(os.path.join(outpath,'.'.join([self.get_varname(),
                         self.get_ext()])),  format = self.get_ext(),**save_param)
@@ -414,6 +426,12 @@ class plot_param:
         self.set_cube(newcube)
         self.set_varname(varname)
         return self
+
+    def gmean(self):
+        return self.get_cube().data.mean()
+
+    def std_spatial(self):
+        return self.get_cube().data.std()
 
 class plot_absolute(plot_param):
     def tatmos(self):

@@ -85,10 +85,10 @@ endif
 
 # settings for scenario
 # scenario number from list above
-set EXP=930
+set EXP=20
 
 # Setting flag for saving control output (1 = save control, 0 = don't save control)
-@ output_control=0
+set output_control=0
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
@@ -97,7 +97,7 @@ set log_hwind_ext=1 #force horizontal winds with external file (0=no forcing; 1=
 set log_omega_ext=1 #force vertical velocity omega with external file (0=no forcing; 1=forcing)
 
 # length of sensitivity experiment in years
-set YEARS=5
+set YEARS=50
 
 # for EXP = 35 choose here a value between -250 and 900 (with an increment of 25) for the obliquity:
 # => possible range: [-250 (= -25deg),  900 (= +90deg)], todays value 225 (=22.5deg)
@@ -116,7 +116,7 @@ set CO2input=none
 
 # for EXP = 930, give the name of input binary file containing artificial clouds
 # (with or without .bin), if not using the default one '../input/cld.artificial.bin'
-set cld_artificial='../artificial_clouds/cld.artificial.amean'
+set cld_artificial='../artificial_clouds/cld.artificial.frominputX1.1'
 
 ### compile GREB model (uncomment one of these three options)
 ### gfortran compiler (Linux (e.g. Ubuntu), Unix or MacBook Air)
@@ -165,16 +165,14 @@ if ( $EXP == 100 ) set CO2='../input/'${CO2input}'.txt'
 ln -s $CO2 co2forcing
 
 # link artificial clouds forcing file for geo-engineering experiment
-if ($EXP == 930) then
-    if ($cld_artificial == none) then
-        set cld_artificial='../input/cld.artificial.bin'
-    else
-        if ($cld_artificial:e != 'bin') set cld_artificial=${cld_artificial}.bin
-    endif
+if ($cld_artificial == none) then
+    set cld_artificial='../input/cld.artificial.bin'
+else
+    if ($cld_artificial:e != 'bin') set cld_artificial=${cld_artificial}.bin
 endif
-    ln -s $cld_artificial cldart
-    # get name for output file
-    set artcldname = `basename $cld_artificial:r`
+ln -s $cld_artificial cldart
+# get name for output file
+set artcldname = `basename $cld_artificial:r`
 
 #  generate namelist
 cat >namelist <<EOF
@@ -306,5 +304,9 @@ endvars
 EOF
 endif
 
-python ../plot_contours.py ../output/scenario.${FILENAME}
+# if ( $EXP == 930 ) then
+#     python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default $cld_artificial
+# else
+#     python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default
+# endif
 exit

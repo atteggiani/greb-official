@@ -2,11 +2,16 @@
 from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
-# Reading file namelistry:
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.amean'
+# Read scenario and base file
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominputX1.1'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
+# filename_art_cloud = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.frominputX1.1'
+
 filename = input_file(filename,1)
 filename_base = input_file(filename_base,2)
+# Read artificial cloud (if any)
+filename_art_cloud=get_art_cloud_filename(filename)
+if filename_art_cloud: filename_art_cloud=input_file(filename_art_cloud,3)
 
 name = os.path.split(filename)[1]
 print('\nSCENARIO_FILE: ' + name)
@@ -16,6 +21,9 @@ name_base = os.path.split(filename_base)[1]
 print('BASE_FILE: ' + name_base)
 outfile_base = filename_base + '.nc'
 
+if filename_art_cloud:
+    name_art_cloud = os.path.split(filename_art_cloud)[1]
+    print('ARTIFICIAL_CLOUD: ' + name_art_cloud)
 # Setting figures output directory
 outdir=os.path.join('/Users/dmar0022/university/phd/greb-official/figures',name)
 outdir_diff=os.path.join('/Users/dmar0022/university/phd/greb-official/figures',
@@ -37,24 +45,6 @@ data_base = iris.load(outfile_base)
 data = parsevar(data)
 data_base = parsevar(data_base)
 
-# [var.var_name for var in data]
-# n=1
-#
-# grid = plt.GridSpec(6, 7, wspace=.5, hspace=1.2)
-# g1=grid[:3,:3]
-# g2=grid[3:,:3]
-# g3=grid[:,3:]
-# plt.subplot(g1,projection = ccrs.Robinson())
-# plt.subplot(g2,projection = ccrs.Robinson())
-# plt.subplot(g3,projection = ccrs.Robinson())
-#
-# plt.subplot(g1,projection = ccrs.Robinson())
-# plot_absolute.from_cube(data[n]).to_annual_mean().assign_var().plot()
-# plt.subplot(g2,projection = ccrs.Robinson())
-# plot_absolute.from_cube(data[n]).to_annual_mean().assign_var().plot()
-# plt.subplot(g3,projection = ccrs.Robinson())
-# plot_absolute.from_cube(data[n]).to_annual_mean().assign_var().plot(outpath=outdir)
-
 #  Plotting scenario run output countours
 print('Plotting scenario contours...')
 for var in data:
@@ -73,6 +63,15 @@ for var in data:
     # sesonal cycle
     plt.figure()
     plot_difference.from_cube(var).to_seasonal_cycle().to_difference(data_base).assign_var().plot(outpath=outdir_diff)
+# Plot artificial clouds
+if filename_art_cloud:
+    print('Plotting artificial cloud "'+name_art_cloud+'"...')
+    plt.figure()
+    plot_artificial_clouds(filename_art_cloud,outdir)
+    plt.figure()
+    plot_artificial_clouds(filename_art_cloud,outdir_diff)
+    plt.figure()
+    plot_artificial_clouds(filename_art_cloud)
 # # Delete netCDF files
 print('Deleting netCDF files...')
 os.remove(outfile)

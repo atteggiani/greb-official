@@ -1370,7 +1370,10 @@ subroutine forcing(it, year, CO2, Tsurf)
   if( log_exp .eq. 240 .or. log_exp .eq. 241 ) Tsurf = Tclim(:,:,ityr)  ! Keep temp on external boundary condition
 
 ! Geo-engineering experiment with artificial clouds
-  if( log_exp .eq. 930 ) cldclim = cldclim_artificial
+  if( log_exp .eq. 930 ) then
+      cldclim = cldclim_artificial
+      CO2 = 2*340.
+  end if
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++
