@@ -30,7 +30,7 @@ YEARS=50
 cld_artificial="$1"
 if [ -z "$cld_artificial" ];
 then
-cld_artificial='../artificial_clouds/cld.artificial.frominputX1.1.bin'
+cld_artificial='../artificial_clouds/cld.artificial.bin'
 fi
 # ###################
 # # END USER INPUT! #
@@ -161,6 +161,7 @@ qcrcl 1 0 qcrcl
 endvars
 EOF
 fi
+
 # Greb model output Analysys and plots
 python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default $cld_artificial
 exit

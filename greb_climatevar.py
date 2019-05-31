@@ -13,6 +13,121 @@ import iris.plot as iplt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
+
+class constants:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def t():
+        return np.arange(17522904.,17531652.+12,12)
+    @staticmethod
+    def lat():
+        return np.arange(-88.125,88.125+3.75,3.75)
+    @staticmethod
+    def lon():
+        return np.arange(0,360,3.75)
+    @staticmethod
+    def dx():
+        return len(constants.lon())
+    @staticmethod
+    def dy():
+        return len(constants.lat())
+    @staticmethod
+    def dt():
+        return len(constants.t())
+    @staticmethod
+    def cloud_file():
+        return r'/Users/dmar0022/university/phd/greb-official/input/isccp.cloud_cover.clim'
+    @staticmethod
+    def shape_for_bin():
+    # 'Shape must be in the form (tdef,ydef,xdef)'
+        return (constants.dt(),constants.dy(),constants.dx())
+    @staticmethod
+    def to_shape_for_bin(data):
+        def_sh = constants.shape_for_bin()
+        sh=data.shape
+        if len(sh) != 3: raise Exception('data must be 3D, in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
+        if len(set(sh)) != 3: raise Exception('data shape must be in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
+        if ((sh[0] not in def_sh) or (sh[1] not in def_sh) or (sh[2] not in def_sh)):
+            raise Exception('data shape must be in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
+        if sh != def_sh:
+            indt=sh.index(def_sh[0])
+            indy=sh.index(def_sh[1])
+            indx=sh.index(def_sh[2])
+            data = data.transpose(indt,indy,indx)
+        return data
+
+def create_clouds(time = None, longitude = None, latitude = None, value = 1,
+                  cloud_base = None, outpath = None):
+    '''
+    Create clouds from scratch, or by modifying an existent cloud matrix ("cloud_base").
+    Every coordinate can be specified in the form:
+    coord_name = [coord_min, coord_max] --> To apply changes only to that portion of that coordinate;
+    coord_name = ... --> To apply changes to all the domain of that coordinate.
+    coord_name can be time, longitude or latitude.
+    "value" can be an integer, float or function to be applied element-wise to the "cloud_base" (e.g. "lambda x: x*1.1")
+    '''
+    # Define constants
+    def_t=constants.t()
+    def_lat=constants.lat()
+    def_lon=constants.lon()
+    dt = constants.dt()
+    dx = constants.dx()
+    dy = constants.dy()
+    # Check coordinates and constrain them
+    if time not in [None,...]:
+        ind_t=np.where((def_t>=t_min) & (def_t<=t_max))[0]
+    else:
+        ind_t=np.where((def_t>=def_t.min()) & (def_t<=def_t.max()))[0]
+    if longitude not in [None,...]:
+        if isinstance(longitude,list):
+            lon_min = longitude[0]
+            lon_max = longitude[1]
+        elif (isinstance(longitude,float) or isinstance(longitude,int)):
+            lon_min = lon_max = longitude
+        else:
+            raise Exception('"longitude" must be a number or in the form [lon_min,lon_max]')
+        ind_lon=np.where((def_lon>=lon_min) & (def_lon<=lon_max))[0]
+    else:
+        ind_lon=np.where((def_lon>=def_lon.min()) & (def_lon<=def_lon.max()))[0]
+    if latitude not in [None,...]:
+        if isinstance(latitude,list):
+            lat_min = latitude[0]
+            lat_max = latitude[1]
+        elif (isinstance(latitude,float) or isinstance(latitude,int)):
+            lat_min = lat_max = latitude
+        else:
+            raise Exception('"latitude" must be a number or in the form [lat_min,lat_max]')
+        ind_lat=np.where((def_lat>=lat_min) & (def_lat<=lat_max))[0]
+    else:
+        ind_lat=np.where((def_lat>=def_lat.min()) & (def_lat<=def_lat.max()))[0]
+    if cloud_base is not None:
+        if isinstance(cloud_base,str):
+            data=data_from_binary(cloud_base,'raw')['cloud']
+        elif isinstance(cloud_base,np.ndarray):
+            data = cloud_base
+        else:
+            raise Exception('"cloud_base" must be a valid .ctl or .bin file or a numpy.ndarray matrix of the cloud data')
+        data = constants.to_shape_for_bin(data)
+    else:
+        data = np.zeros((dt,dy,dx))
+    # Change values
+    if (isinstance(value,float) or isinstance(value,int)):
+        data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value
+    elif callable(value):
+        data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value(data[ind_t[:,None,None],ind_lat[:,None],ind_lon])
+    else:
+        raise Exception('"value" must be a number or function to apply to the "cloud_base" (e.g. "lambda x: x*1.1")')
+    # Correct value above 1 or below 0
+    data=np.where(data<=1,data,1)
+    data=np.where(data>=0,data,0)
+    # Write .bin and .ctl files
+    vars = {'cloud':data}
+    if outpath is None:
+        outpath='/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.ctl'
+    create_bin_ctl(outpath,vars)
+
 def get_art_cloud_filename(filename):
     txt='exp-930.geoeng.'
     if txt in filename:
@@ -44,31 +159,70 @@ def plot_artificial_clouds(filename,outpath=None):
         else: outpath = None
     bin2netCDF(filename)
     data=iris.util.squeeze(iris.load_cube(filename+'.nc'))
-    plot_param.from_cube(data[0,:,:],cmap=cm.Greys_r, varname = name,
-    cmaplev = np.arange(0,1+0.05,0.05),units = '',
-    cbticks = np.arange(0,1+0.1,0.1)).plot(outpath = outpath,
-                        coast_param = {'edgecolor':[0,.5,0.3]},statistics=False)
+# Plot annual data
+    am= plot_param.from_cube(annual_mean(data), cmap=cm.Greys_r, varname = name+'.amean',
+                             cmaplev = np.arange(0,1+0.05,0.05),units = '',
+                             cbticks = np.arange(0,1+0.1,0.1),
+                             cbextmode = 'neither', tit = name + ' Annual Mean')
+    plt.figure()
+    am.plot(outpath = outpath, coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
+# Plot seasonal cycle data
+    am= plot_param.from_cube(seasonal_cycle(data), varname = name+'.seascyc',
+                             cmaplev = np.arange(-1,1+0.1,0.1),units = '',
+                             cbticks = np.arange(-1,1+0.2,0.2),
+                             tit = name + ' Seasonal Cycle')
+    plt.figure()
+    am.plot(outpath = outpath, coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
     os.remove(filename+'.nc')
 
 def ignore_warnings():
-    # Ignore warnings
+# Ignore warnings
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
-def data_from_input(filename):
+def data_from_binary(filename,flag='correct_units'):
+    # 1st version, quicker but not precise on time corrections
+    '''
+    The flag can be:
+    "raw" --> no corrections are performed on the data
+    "correct_units" --> units correction is performed for some variables ("precip","eva" and "qcrcl")
+    "correct_time" --> time correction is performed so that data belonging to the same MONTH will be averaged
+    "correct_all" (default) --> correct both time values and units
+    '''
+    # If flag is not "raw" use data_from_binary_2 (more precise)
+    def data_from_binary_2(filename,flag='correct_all'):
+    # 2nd version, slower but precise on time corrections
+        filename = rmext(filename)
+        bin2netCDF(filename)
+        data = iris.load(filename+'.nc')
+        if flag in ['correct_units','correct_all']:
+            data = parsevar(data)
+        keys = [d.var_name for d in data]
+        if flag in ['correct_time','correct_all']:
+            for d in data: iris.coord_categorisation.add_month(d, 'time', name='month')
+            data = [d.aggregated_by('month',iris.analysis.MEAN) for d in data]
+        vals = [d.data.data.squeeze() for d in data]
+        dic = dict(zip(keys,vals))
+        return dic
+
+    if flag != 'raw':
+        return data_from_binary_2(filename,flag)
     filename = rmext(filename)
     with open(filename+'.ctl','r') as f:
-        a=f.read().split()
-    ind=a.index('vars')
-    dt = int(a[a.index('tdef')+1])
-    dx = int(a[a.index('xdef')+1])
-    dy = int(a[a.index('ydef')+1])
-    if a[ind+1] != '1': raise Exception('Input with more than one '+\
-                                     'variable not yet readable with this function')
-    key=[a[ind+2]]
+        b=f.read().split('\n')
+    ind = np.where(list(map(lambda x: 'vars' in x.split(),b)))[0][0]
+    vars=int(b[ind].split()[1])
+    dt = int(b[np.where(list(map(lambda x: 'tdef' in x.split(),b)))[0][0]].split()[1])
+    dx = int(b[np.where(list(map(lambda x: 'xdef' in x.split(),b)))[0][0]].split()[1])
+    dy = int(b[np.where(list(map(lambda x: 'ydef' in x.split(),b)))[0][0]].split()[1])
+    keys = []
+    for i in np.arange(vars):
+        keys.append(b[ind+1+i].split()[0])
     with open(filename+'.bin','rb') as f:
-        val=[np.fromfile(f,dtype=np.float32).reshape(dt,dy,dx).transpose(0,2,1)]
-    return dict(zip(key,val))
+        v = np.fromfile(f,dtype=np.float32).reshape(dt,vars,dy,dx).transpose(1,0,2,3)
+        vals=[v[i,...] for i in np.arange(vars)]
+    dic = dict(zip(keys,vals))
+    return dic
 
 def rmext(filename):
     path,ext = os.path.splitext(filename)
@@ -80,8 +234,8 @@ def create_bin(path,vars):
     with open(path+'.bin','wb') as f:
         for v in vars: f.write(v)
 
-def create_ctl(path, varnames = ['clouds'], xdef = 96, ydef = 48, zdef = 1,
-               tdef = 730):
+def create_ctl(path, varnames = ['clouds'], xdef = constants.dx(),
+               ydef = constants.dy(), zdef = 1, tdef = constants.dt()):
     path = rmext(path)
     nvars = len(varnames)
     name = os.path.split(path)[1]+'.bin'
@@ -107,19 +261,7 @@ def create_bin_ctl(path,vars):
     l=[v.shape for v in varvals]
     if not ( l.count(l[0]) == len(l) ):
         raise Exception('var1,var2,...,varN must be of the same size')
-    if len(l[0]) != 3:
-        raise Exception('create_bin_ctl funcion supports only 2D (tdef x ydef x xdef) time series')
-    if 730 not in l[0]:
-        raise Exception('tdef must be 730')
-    if 96 not in l[0]:
-        raise Exception('xdef must be 96')
-    if 48 not in l[0]:
-        raise Exception('ydef must be 48')
-    dt=l[0].index(730)
-    dx=l[0].index(96)
-    dy=l[0].index(48)
-    if not (l[0][0]==730 and l[0][1]==48):
-        varvals = [v.transpose(dt,dy,dx) for v in varvals]
+    varvals = [constants.to_shape_for_bin(v) for v in varvals]
     varvals=[np.float32(v.copy(order='C')) for v in varvals]
     # WRITE CTL FILE
     create_ctl(path, varnames = varnames)
@@ -190,7 +332,7 @@ def seasonal_cycle(cubes):
         var.var_name = name+'.seascyc'
     return cycle[0] if fl else cycle
 
-def difference(cubes,cubes_base):
+def anomalies(cubes,cubes_base):
     fl=False
     if not isinstance(cubes,list):
         cubes = [cubes]
@@ -199,7 +341,7 @@ def difference(cubes,cubes_base):
     # get var names
     varnames=[var.var_name for var in cubes]
     varnames_base=[var.var_name for var in cubes_base]
-    # compute difference between same variables
+    # compute anomalies between same variables
     diff = []
     for i,var in enumerate(varnames):
         if var in varnames_base:
@@ -208,6 +350,39 @@ def difference(cubes,cubes_base):
             d.var_name = cubes[i].var_name
             diff.append(d)
     return diff[0] if fl else diff
+
+def variation(cubes,cubes_base,func='weighted'):
+    ''' The possibilities for FUNC are the following:
+        "basic" --> Basic rate of change: (x - x_ref)/|x_ref|
+        "weighted" --> ((x - x_ref)/((|x|-|x_ref|)/2))*max(x,x_ref)
+        user defined function --> an example could be: lambda x,x-ref: x-x_ref
+    '''
+    fl=False
+    if not isinstance(cubes,list):
+        cubes = [cubes]
+        fl=True
+    if not isinstance(cubes_base,list): cubes_base = [cubes_base]
+    # get var names
+    varnames=[var.var_name for var in cubes]
+    varnames_variation=[var.var_name for var in cubes_base]
+    # compute variations between same variables
+    variat = []
+    c=cubes
+    b=cubes_base
+    _abs=iris.analysis.maths.abs
+    _max=iris.analysis.maths.apply_ufunc
+    for i,var in enumerate(varnames):
+        if (var in varnames_variation):
+            k= varnames_variation.index(var)
+            if func == 'basic':
+                v = ((c[i]-b[k])/_abs(b[k]))*100
+            elif func == 'weighted':
+                v = 2*((c[i]-b[k])/(_abs(c[i])+_abs(b[k])))*_max(np.maximum,c[i],b[k])*100
+            else:
+                v = func(c[i],b[k])*100
+            v.var_name = cubes[i].var_name
+            variat.append(v)
+    return variat[0] if fl else variat
 
 def parsevar(cubes):
     # Initialize output variables
@@ -218,6 +393,22 @@ def parsevar(cubes):
     varnames=[var.var_name for var in cubes]
     for var in cubes:
         var.long_name = None
+        defvar = ['tatmos','tsurf','tocean','precip','eva','qcrcl','vapor','ice']
+    # TATMOS
+    id = 'tatmos'
+    if id in varnames:
+        ind = varnames.index(id)
+        cubes[ind].units=''
+    # TSURF
+    id = 'tsurf'
+    if id in varnames:
+        ind = varnames.index(id)
+        cubes[ind].units=''
+    # TOCEAN
+    id = 'tocean'
+    if id in varnames:
+        ind = varnames.index(id)
+        cubes[ind].units=''
     # PRECIP
     id = 'precip'
     if id in varnames:
@@ -239,18 +430,13 @@ def parsevar(cubes):
         cubes[ind]*=86400
         cubes[ind].var_name=id
         cubes[ind].units='mm/day'
-    # TSURF
-    id = 'tsurf'
+    # VAPOR
+    id = 'vapor'
     if id in varnames:
         ind = varnames.index(id)
         cubes[ind].units=''
-    # TATMOS
-    id = 'tatmos'
-    if id in varnames:
-        ind = varnames.index(id)
-        cubes[ind].units=''
-    # TOCEAN
-    id = 'tocean'
+    # ICE
+    id = 'ice'
     if id in varnames:
         ind = varnames.index(id)
         cubes[ind].units=''
@@ -259,10 +445,11 @@ def parsevar(cubes):
 class plot_param:
     ext = 'png'
     defvar = ['tatmos','tsurf','tocean','precip','eva','qcrcl','vapor','ice']
+    defflags = ['amean','seascyc','anom','variat']
 
     def __init__(self, cube = None, units = None, cmap = None, cmaplev = None,
                  cbticks = None, cbextmode = None, defname = None,
-                 varname = None, tit = None, flag = None):
+                 varname = None, tit = None, flags = None):
 
         self.cube = cube
         self.cmap = cmap
@@ -273,7 +460,7 @@ class plot_param:
         self.defname = defname
         self.varname = varname
         self.tit = tit
-        self.flag = flag
+        self.flags = flags if (flags is None or isinstance(flags,list)) else [flags]
 
     def set_cube(self,cube):
         self.cube = cube
@@ -299,11 +486,25 @@ class plot_param:
     def set_tit(self,tit):
         self.tit = tit
 
-    def set_flag(self,flag):
-        self.flag = flag
+    def set_flags(self,flags):
+        if not isinstance(flags,list): flags=[flags]
+        for f in flags:
+            if f not in self.defflags: raise Exception('{} is not a recognized flag'.format(f))
+        self.flags = list(set(flags))
+
+    def add_flags(self,flags):
+        if not isinstance(flags,list): flags=[flags]
+        oldflags=self.get_flags()
+        if oldflags:
+            self.set_flags(list(set(oldflags+flags)))
+        else:
+            self.set_flags(list(set(flags)))
 
     def get_cube(self):
         return self.cube
+
+    def get_data(self):
+        return self.get_cube().data
 
     def get_units(self):
         return self.units
@@ -329,13 +530,13 @@ class plot_param:
     def get_tit(self):
         return self.tit
 
-    def get_flag(self):
-        return self.flag
+    def get_flags(self):
+        return self.flags
 
     def plot(self, outpath = None, ax = None, projection = ccrs.Robinson(),
              coast_param = {},
              land_param = {'edgecolor':'face', 'facecolor':'black'},
-             title_param = {},
+             title_param = {'fontsize':12},
              save_param = {'dpi':300, 'bbox_inches':'tight'},
              statistics=True):
         # plt.figure(figsize=(12, 8))
@@ -350,7 +551,9 @@ class plot_param:
                      label = self.get_units(), ticks = self.get_cbticks())
         plt.title(self.get_tit(),**title_param)
         if statistics:
-            txt = 'gmean = {:.3f}\nsp_std = {:.3f}'.format(self.gmean(),self.std_spatial())
+            txt = ('gmean = {:.3f}'+'\n'+\
+                  'std = {:.3f}'+'\n'+\
+                  'rms = {:.3f}').format(self.gmean(),self.std(),self.rms())
             plt.text(1.05,1,txt,verticalalignment='top',horizontalalignment='right',
                      transform=plt.gca().transAxes,fontsize=6)
         if outpath is not None:
@@ -366,22 +569,36 @@ class plot_param:
         return cls.defvar
 
     @classmethod
+    def get_defflags(cls):
+        return cls.defflags
+
+    @classmethod
     def set_ext(cls,ext):
         cls.ext = ext
 
     @classmethod
     def set_defvar(cls,vars):
+        if not isinstance(vars,list): vars = [vars]
         cls.defvar = vars
 
     @classmethod
     def add_defvar(cls,vars):
-        if not isinstance(vars,list):
-            vars = [vars]
-        cls.set_defvar(cls.get_defvar()+vars)
+        if not isinstance(vars,list): vars = [vars]
+        cls.set_defvar(list(set(cls.get_defvar()+vars)))
+
+    @classmethod
+    def set_defflags(cls,flags):
+        if not isinstance(flags,list): flags = [flags]
+        cls.defflags = flags
+
+    @classmethod
+    def add_defflags(cls,flags):
+        if not isinstance(flags,list): flags = [flags]
+        cls.set_defflags(list(set(cls.get_defflags()+flags)))
 
     @classmethod
     def from_cube(cls, cube, units = None, cmap = cm.RdBu_r, cmaplev = None,
-                  cbticks = None, cbextmode = 'neither', varname = None,
+                  cbticks = None, cbextmode = 'both', varname = None,
                   tit = None):
         units = cube.units if units is None else units
         cmaplev = cmap.N if cmaplev is None else cmaplev
@@ -400,7 +617,7 @@ class plot_param:
         self.set_varname(newcube.var_name)
         if tit is None:
             self.set_tit(self.get_varname()+'.amean')
-        self.set_flag('amean')
+        self.add_flags('amean')
         return self
 
     def to_seasonal_cycle(self):
@@ -411,393 +628,314 @@ class plot_param:
         self.set_varname(newcube.var_name)
         if tit is None:
             self.set_tit(self.get_varname()+'.seascyc')
-        self.set_flag('seascyc')
+        self.add_flags('seascyc')
         return self
 
-    def to_difference(self,cube_base):
-        fl = self.get_flag()
+    def to_anomalies(self,cube_base):
+        fl = self.get_flags()
         varname = self.get_varname()
         cube = self.get_cube()
-        if fl == 'amean':
+        if 'amean' in fl:
             cube_base = annual_mean(cube_base)
-        elif fl == 'seascyc':
+        elif 'seascyc' in fl:
             cube_base = seasonal_cycle(cube_base)
-        newcube = difference(cube,cube_base)
+        newcube = anomalies(cube,cube_base)
         self.set_cube(newcube)
         self.set_varname(varname)
+        self.add_flags('anom')
+        return self
+
+    def to_variation(self,cube_base,func='weighted'):
+        fl = self.get_flags()
+        varname = self.get_varname()
+        cube = self.get_cube()
+        if 'amean' in fl:
+            cube_base = annual_mean(cube_base)
+        elif 'seascyc' in fl:
+            cube_base = seasonal_cycle(cube_base)
+        newcube = variation(cube,cube_base,func)
+        self.set_cube(newcube)
+        self.set_varname(varname)
+        self.add_flags('variat')
         return self
 
     def gmean(self):
         return self.get_cube().data.mean()
 
-    def std_spatial(self):
+    def std(self):
         return self.get_cube().data.std()
 
-class plot_absolute(plot_param):
+    def rms(self):
+        return np.sqrt((self.get_cube().data**2).mean())
+# ====================================================================
+# ====================================================================
+# ====================================================================
     def tatmos(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
+        self.set_varname('tatmos')
         self.set_units('[K]')
-        self.set_cbextmode('both')
+        self.set_tit('Atmospheric Temperature')
         self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('tatmos.amean')
-            self.set_cmaplev(np.arange(223,323+5,5))
-            self.set_cbticks(np.arange(223,323+10,10))
-            self.set_tit('Atmospheric Temperature Annual Mean')
-        elif self.get_flag() == 'seascyc':
-            self.set_varname('tatmos.seascyc')
-            self.set_cmaplev(np.arange(-20,20+2,2))
-            self.set_cbticks(np.arange(-20,20+4,4))
-            self.set_tit('Atmospheric Temperature Seasonal Cycle')
+        if 'anom' in flags:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(-8,8+1,1))
+                self.set_cbticks(np.arange(-8,8+1,1))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
+                self.set_cbticks(np.arange(-4,4+1,1))
         else:
-            self.set_varname('tatmos')
-            self.set_cmaplev(12)
-            self.set_tit('Atmospheric Temperature')
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(223,323+5,5))
+                self.set_cbticks(np.arange(223,323+10,10))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-20,20+2,2))
+                self.set_cbticks(np.arange(-20,20+4,4))
         return self
 
     def tsurf(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
+        self.set_varname('tsurf')
         self.set_units('[K]')
-        self.set_cbextmode('both')
+        self.set_tit('Surface Temperature')
         self.set_cmap(cm.RdBu_r)
-        if flag == 'amean':
-            self.set_varname('tsurf.amean')
-            self.set_cmaplev(np.arange(223,323+5,5))
-            self.set_cbticks(np.arange(223,323+10,10))
-            self.set_tit('Surface Temperature Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('tsurf.seascyc')
-            self.set_cmaplev(np.arange(-20,20+2,2))
-            self.set_cbticks(np.arange(-20,20+4,4))
-            self.set_tit('Surface Temperature Seasonal Cycle')
+        if 'anom' in flags:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(-8,8+1,1))
+                self.set_cbticks(np.arange(-8,8+1,1))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
+                self.set_cbticks(np.arange(-4,4+1,1))
         else:
-            self.set_varname('tsurf')
-            self.set_cmaplev(12)
-            self.set_tit('Surface Temperature')
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(223,323+5,5))
+                self.set_cbticks(np.arange(223,323+10,10))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-20,20+2,2))
+                self.set_cbticks(np.arange(-20,20+4,4))
         return self
 
     def tocean(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
+        self.set_varname('tocean')
         self.set_units('[K]')
-        self.set_cbextmode('both')
+        self.set_tit('Ocean Temperature')
         self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('tocean.amean')
-            self.set_cmaplev(np.arange(273,303+5,3))
-            self.set_cbticks(np.arange(273,303+10,3))
-            self.set_tit('Ocean Temperature Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('tocean.seascyc')
-            self.set_cmaplev(np.arange(-1,1+1e-1,1e-1))
-            self.set_cbticks(np.arange(-1,1+2e-1,2e-1))
-            self.set_tit('Ocean Temperature Seasonal Cycle')
+        if 'anom' in flags:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
+                self.set_cbticks(np.arange(-4,4+1,1))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
         else:
-            self.set_varname('tocean')
-            self.set_cmaplev(12)
-            self.set_tit('Ocean Temperature')
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(273,303+5,3))
+                self.set_cbticks(np.arange(273,303+10,3))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-1,1+1e-1,1e-1))
+                self.set_cbticks(np.arange(-1,1+2e-1,2e-1))
         return self
 
     def precip(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
+        self.set_varname('precip')
         self.set_units('[mm][day-1]')
-        if self.get_flag() == 'amean':
-            self.set_varname('precip.amean')
-            self.set_cmap(cm.GnBu)
-            self.set_cmaplev(np.arange(0,9+1,1))
-            self.set_cbticks(np.arange(0,9+1,1))
-            self.set_cbextmode('max')
-            self.set_tit('Precipitation Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('precip.seascyc')
-            self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(-6,6+1,1))
-            self.set_cmaplev(np.arange(-6,6+1,1))
-            self.set_cbextmode('both')
-            self.set_tit('Precipitation Seasonal Cycle')
+        self.set_tit('Precipitation')
+        self.set_cmap(cm.GnBu)
+        if 'anom' in flags:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
-            self.set_varname('precip')
-            self.set_cmap(cm.GnBu)
-            self.set_cmaplev(12)
-            self.set_cbextmode('both')
-            self.set_tit('Precipitation')
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(0,9+1,1))
+                self.set_cbticks(np.arange(0,9+1,1))
+                self.set_cbextmode('max')
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-6,6+1,1))
+                self.set_cmaplev(np.arange(-6,6+1,1))
         return self
 
     def eva(self):
-        flag = self.get_flag()
-        self.set_units('[mm][day-1]') # ADD UNITS!
-        if self.get_flag() == 'amean':
-            self.set_varname('eva.amean')
-            self.set_cmap(cm.Blues)
-            self.set_cmaplev(np.arange(0,10+1,1))
-            self.set_cbticks(np.arange(0,10+1,1))
-            self.set_cbextmode('max')
-            self.set_tit('Evaporation Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('eva.seascyc')
-            self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(-3,3+0.5,0.5))
-            self.set_cbticks(np.arange(-3,3+0.5,0.5))
-            self.set_cbextmode('both')
-            self.set_tit('Evaporation Seasonal Cycle')
+        flags = self.get_flags()
+        self.set_units('[mm][day-1]')
+        self.set_varname('eva')
+        self.set_tit('Evaporation')
+        self.set_cmap(cm.GnBu)
+        if 'anom' in flags:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
-            self.set_varname('eva')
-            self.set_cmap(cm.Blues)
-            self.set_cmaplev(12)
-            self.set_cbextmode('both')
-            self.set_tit('Evaporation')
+            if 'amean' in flags:
+                self.set_cmap(cm.Blues)
+                self.set_cmaplev(np.arange(0,10+1,1))
+                self.set_cbticks(np.arange(0,10+1,1))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-3,3+0.5,0.5))
+                self.set_cbticks(np.arange(-3,3+0.5,0.5))
+            else:
+                self.set_cmap(cm.Blues)
         return self
 
     def qcrcl(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
         self.set_units('[mm][day-1]')
-        self.set_cbextmode('both')
         self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('qcrcl.amean')
-            self.set_cmaplev(np.arange(-8,8+1))
-            self.set_cbticks(np.arange(-8,8+2,2))
-            self.set_tit('Circulation Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('qcrcl.seascyc')
-            self.set_cmaplev(np.arange(-6,6+1,1))
-            self.set_cmaplev(np.arange(-6,6+1,1))
-            self.set_tit('Circulation Seasonal Cycle')
+        if 'anom' in flags:
+            txt = 'Anomaly'
+            if 'amean' in flags:
+                self.set_varname('qcrcl.amean')
+                self.set_tit('Circulation Annual Mean '+txt)
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+            elif 'seascyc' in flags:
+                self.set_varname('qcrcl.seascyc')
+                self.set_tit('Circulation Seasonal Cycle '+txt)
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+            else:
+                self.set_varname('qcrcl')
+                self.set_cmaplev(12)
+                self.set_tit('Circulation '+txt)
         else:
-            self.set_varname('qcrcl')
-            self.set_cmaplev(12)
-            self.set_tit('Circulation')
+            if 'amean' in flags:
+                self.set_varname('qcrcl.amean')
+                self.set_cmaplev(np.arange(-8,8+1))
+                self.set_cbticks(np.arange(-8,8+2,2))
+                self.set_tit('Circulation Annual Mean')
+            elif 'seascyc' in flags:
+                self.set_varname('qcrcl.seascyc')
+                self.set_cmaplev(np.arange(-6,6+1,1))
+                self.set_cmaplev(np.arange(-6,6+1,1))
+                self.set_tit('Circulation Seasonal Cycle')
+            else:
+                self.set_varname('qcrcl')
+                self.set_cmaplev(12)
+                self.set_tit('Circulation')
         return self
 
     def vapor(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
         self.set_units(' ') # ADD UNITS!
-        if self.get_flag() == 'amean':
-            self.set_varname('vapor.amean')
-            self.set_cmap(cm.Blues)
-            self.set_cmaplev(np.arange(0,0.02+0.002,0.002))
-            self.set_cbticks(np.arange(0,0.02+0.002,0.002))
-            self.set_cbextmode('max')
-            self.set_tit('Specific Humidity Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('vapor.seascyc')
-            self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(-0.01,0.01+0.001,0.001))
-            self.set_cbticks(np.arange(-0.01,0.01+0.002,0.002))
-            self.set_cbextmode('both')
-            self.set_tit('Specific Humidity Seasonal Cycle')
+        if 'anom' in flags:
+            txt = 'Anomaly'
+            if 'amean' in flags:
+                self.set_varname('vapor.amean')
+                self.set_tit('Specific Humidity Annual Mean '+txt)
+                self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
+                self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
+            elif 'seascyc' in flags:
+                self.set_varname('vapor.seascyc')
+                self.set_tit('Specific Humidity Seasonal Cycle '+txt)
+                self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
+                self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
+            else:
+                self.set_varname('vapor')
+                self.set_cmaplev(12)
+                self.set_tit('Specific Humidity '+txt)
         else:
-            self.set_varname('vapor')
-            self.set_cmap(cm.Blues)
-            self.set_cmaplev(12)
-            self.set_cbextmode('both')
-            self.set_tit('Specific Humidity')
+            if 'amean' in flags:
+                self.set_varname('vapor.amean')
+                self.set_cmap(cm.Blues)
+                self.set_cmaplev(np.arange(0,0.02+0.002,0.002))
+                self.set_cbticks(np.arange(0,0.02+0.002,0.002))
+                self.set_cbextmode('max')
+                self.set_tit('Specific Humidity Annual Mean')
+            elif 'seascyc' in flags:
+                self.set_varname('vapor.seascyc')
+                self.set_cmap(cm.RdBu_r)
+                self.set_cmaplev(np.arange(-0.01,0.01+0.001,0.001))
+                self.set_cbticks(np.arange(-0.01,0.01+0.002,0.002))
+                self.set_tit('Specific Humidity Seasonal Cycle')
+            else:
+                self.set_varname('vapor')
+                self.set_cmap(cm.Blues)
+                self.set_cmaplev(12)
+                self.set_tit('Specific Humidity')
         return self
 
     def ice(self):
-        flag = self.get_flag()
+        flags = self.get_flags()
         self.set_units(' ')
-        if self.get_flag() == 'amean':
-            self.set_varname('ice.amean')
-            self.set_cmap(cm.Blues_r)
-            self.set_cmaplev(np.arange(0,1+0.05,0.05))
-            self.set_cbticks(np.arange(0,1+0.1,0.1))
-            self.set_cbextmode('both')
-            self.set_tit('Ice Annual Mean')
-        elif flag == 'seascyc':
-            self.set_varname('ice.seascyc')
-            self.set_cmap(cm.RdBu_r)
-            self.set_cmaplev(np.arange(0,1+0.05,0.05))
-            self.set_cbticks(np.arange(0,1+0.1,0.1))
-            self.set_cbextmode('both')
-            self.set_tit('Ice Seasonal Cycle')
+        if 'anom' in flags:
+            txt = 'Anomaly'
+            if 'amean' in flags:
+                self.set_varname('ice.amean')
+                self.set_tit('Ice Annual Mean '+txt)
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
+            elif 'seascyc' in flags:
+                self.set_varname('ice.seascyc')
+                self.set_tit('Ice Seasonal Cycle '+txt)
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
+            else:
+                self.set_varname('ice '+txt)
+                self.set_cmaplev(12)
+                self.set_tit('Ice')
         else:
-            self.set_varname('ice')
-            self.set_cmap(cm.Blues_r)
-            self.set_cmaplev(12)
-            self.set_cbextmode('both')
-            self.set_tit('Ice')
+            if 'amean' in flags:
+                self.set_varname('ice.amean')
+                self.set_cmap(cm.Blues_r)
+                self.set_cmaplev(np.arange(0,1+0.05,0.05))
+                self.set_cbticks(np.arange(0,1+0.1,0.1))
+                self.set_tit('Ice Annual Mean')
+            elif 'seascyc' in flags:
+                self.set_varname('ice.seascyc')
+                self.set_cmap(cm.RdBu_r)
+                self.set_cmaplev(np.arange(0,1+0.05,0.05))
+                self.set_cbticks(np.arange(0,1+0.1,0.1))
+                self.set_tit('Ice Seasonal Cycle')
+            else:
+                self.set_varname('ice')
+                self.set_cmap(cm.Blues_r)
+                self.set_cmaplev(12)
+                self.set_tit('Ice')
         return self
 
     def assign_var(self):
         name = self.get_defname()
         if name in self.defvar:
-            return eval('self.{}()'.format(name))
+            return eval('self.{}().set_param()'.format(name))
         else:
             return self
 
-class plot_difference(plot_param):
-    txt = 'Anomaly'
-    def tatmos(self):
-        flag = self.get_flag()
-        self.set_units('[K]')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('tatmos.amean')
-            self.set_tit('Atmospheric Temperature Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-8,8+1,1))
-            self.set_cbticks(np.arange(-8,8+1,1))
-        elif self.get_flag() == 'seascyc':
-            self.set_varname('tatmos.seascyc')
-            self.set_tit('Atmospheric Temperature Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-            self.set_cbticks(np.arange(-4,4+1,1))
+    def set_param(self):
+        flags = self.get_flags()
+        if 'amean' in flags:
+            txt='amean'
+            tit = 'Annual Mean'
+        elif 'seascyc' in flags:
+            txt='seascyc'
+            tit = 'Seasonal Cycle'
+            self.set_cmap(cm.RdBu_r)
+            self.set_cbextmode('both')
         else:
-            self.set_varname('tatmos')
+            txt=''
+            tit = ''
             self.set_cmaplev(12)
-            self.set_tit('Atmospheric Temperature '+self.txt)
-        return self
 
-    def tsurf(self):
-        flag = self.get_flag()
-        self.set_units('[K]')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if flag == 'amean':
-            self.set_varname('tsurf.amean')
-            self.set_tit('Surface Temperature Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-8,8+1,1))
-            self.set_cbticks(np.arange(-8,8+1,1))
-        elif flag == 'seascyc':
-            self.set_varname('tsurf.seascyc')
-            self.set_tit('Surface Temperature Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-            self.set_cbticks(np.arange(-4,4+1,1))
+        if 'variat' in flags:
+            tit2='Change Rate'
+            self.set_units('%')
+            self.set_cmap(cm.PuOr_r)
+            self.set_cmaplev(np.arange(-100,100+10,10))
+            self.set_cbticks(np.arange(-100,100+20,20))
+            self.set_cbextmode('both')
+        elif 'anom' in flags:
+            tit2= 'Anomaly'
+            self.set_cmap(cm.RdBu_r)
+            self.set_cbextmode('both')
         else:
-            self.set_varname('tsurf')
-            self.set_cmaplev(12)
-            self.set_tit('Surface Temperature '+self.txt)
-        return self
+            tit2= ''
 
-    def tocean(self):
-        flag = self.get_flag()
-        self.set_units('[K]')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('tocean.amean')
-            self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-            self.set_cbticks(np.arange(-4,4+1,1))
-            self.set_tit('Ocean Temperature Annual Mean '+self.txt)
-        elif flag == 'seascyc':
-            self.set_varname('tocean.seascyc')
-            self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.2,0.2))
-            self.set_tit('Ocean Temperature Seasonal Cycle '+self.txt)
-        else:
-            self.set_varname('tocean')
-            self.set_cmaplev(12)
-            self.set_tit('Ocean Temperature '+self.txt)
+        self.set_varname('.'.join([self.get_varname(),txt]))
+        self.set_tit(' '.join([self.get_tit(),tit,tit2]))
         return self
-
-    def precip(self):
-        flag = self.get_flag()
-        self.set_units('[mm][day-1]')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('precip.amean')
-            self.set_tit('Precipitation Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-            self.set_cbticks(np.arange(-2,2+0.4,0.4))
-        elif flag == 'seascyc':
-            self.set_varname('precip.seascyc')
-            self.set_tit('Precipitation Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-            self.set_cbticks(np.arange(-2,2+0.4,0.4))
-        else:
-            self.set_varname('precip')
-            self.set_cmaplev(12)
-            self.set_tit('Precipitation '+self.txt)
-        return self
-
-    def eva(self):
-        flag = self.get_flag()
-        self.set_units('[mm][day-1]')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('eva.amean')
-            self.set_tit('Evaporation Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-            self.set_cbticks(np.arange(-2,2+0.4,0.4))
-        elif flag == 'seascyc':
-            self.set_varname('eva.seascyc')
-            self.set_tit('Evaporation Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-            self.set_cbticks(np.arange(-2,2+0.4,0.4))
-        else:
-            self.set_varname('eva')
-            self.set_cmaplev(12)
-            self.set_tit('Evaporation '+self.txt)
-        return self
-
-    def qcrcl(self):
-        flag = self.get_flag()
-        self.set_units('[mm][day-1]')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('qcrcl.amean')
-            self.set_tit('Circulation Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-            self.set_cbticks(np.arange(-2,2+0.4,0.4))
-        elif flag == 'seascyc':
-            self.set_varname('qcrcl.seascyc')
-            self.set_tit('Circulation Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-            self.set_cbticks(np.arange(-2,2+0.4,0.4))
-        else:
-            self.set_varname('qcrcl')
-            self.set_cmaplev(12)
-            self.set_tit('Circulation '+self.txt)
-        return self
-
-    def vapor(self):
-        flag = self.get_flag()
-        self.set_units(' ') # ADD UNITS!
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('vapor.amean')
-            self.set_tit('Specific Humidity Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
-            self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
-        elif flag == 'seascyc':
-            self.set_varname('vapor.seascyc')
-            self.set_tit('Specific Humidity Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
-            self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
-        else:
-            self.set_varname('vapor')
-            self.set_cmaplev(12)
-            self.set_tit('Specific Humidity '+self.txt)
-        return self
-
-    def ice(self):
-        flag = self.get_flag()
-        self.set_units(' ')
-        self.set_cbextmode('both')
-        self.set_cmap(cm.RdBu_r)
-        if self.get_flag() == 'amean':
-            self.set_varname('ice.amean')
-            self.set_tit('Ice Annual Mean '+self.txt)
-            self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.2,0.2))
-        elif flag == 'seascyc':
-            self.set_varname('ice.seascyc')
-            self.set_tit('Ice Seasonal Cycle '+self.txt)
-            self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-            self.set_cbticks(np.arange(-1,1+0.2,0.2))
-        else:
-            self.set_varname('ice '+self.txt)
-            self.set_cmaplev(12)
-            self.set_tit('Ice')
-        return self
-
-    def assign_var(self):
-        name = self.get_defname()
-        if name in self.defvar:
-            return eval('self.{}()'.format(name))
-        else:
-            return self

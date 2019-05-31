@@ -8,7 +8,7 @@ dx = 96
 dy = 48
 dt = 730
 filename = r'/Users/dmar0022/university/phd/greb-official/input/isccp.cloud_cover.clim.ctl'
-data=data_from_input(filename)
+data=data_from_binary(filename,'raw')
 for key,value in data.items():
     a = value*alpha
     data[key] = np.where(a<=1,a,1)
@@ -27,7 +27,7 @@ dx = 96
 dy = 48
 dt = 730
 filename = r'/Users/dmar0022/university/phd/greb-official/input/isccp.cloud_cover.clim.ctl'
-data=data_from_input(filename)
+data=data_from_binary(filename,'raw')
 for key,value in data.items():
     a = value.mean(axis=0)*alpha
     data[key] = np.tile(np.where(a<=1,a,1),(dt,1,1))
@@ -44,25 +44,9 @@ dx = 96
 dy = 48
 dt = 730
 filename = r'/Users/dmar0022/university/phd/greb-official/input/isccp.cloud_cover.clim.ctl'
-data=data_from_input(filename)
+data=data_from_binary(filename,'raw')
 for key,value in data.items():
     data[key] = np.tile(value.mean(axis=0),(dt,1,1))
 path='/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.amean.ctl'
 vars = data
-create_bin_ctl(path,vars)
-
-# =============================================================================
-# FROM SCRATCH
-# =============================================================================
-from greb_climatevar import *
-ignore_warnings()
-
-dt = 730
-dx = 96
-dy = 48
-
-path='/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.all0.ctl'
-
-mtx = np.zeros((dx,dy,dt))
-vars = {'cloud':mtx}
 create_bin_ctl(path,vars)
