@@ -28,10 +28,7 @@ YEARS=50
 # run (with or without .bin).
 # If no file is provided, the default one '../input/cld.artificial.bin' will be used.
 cld_artificial="$1"
-if [ -z "$cld_artificial" ];
-then
-cld_artificial='../artificial_clouds/cld.artificial.bin'
-fi
+cld_artificial=${cld_artificial:='../artificial_clouds/cld.artificial.bin'}
 # ###################
 # # END USER INPUT! #
 # ###################
@@ -49,16 +46,11 @@ mv *.mod work/.
 cd work
 
 # link artificial clouds forcing file for geo-engineering experiment
-if [ $cld_artificial == none ]
+if [ "${cld_artificial##*.}" == "bin" ] || [ "${cld_artificial##*.}" == "ctl" ] || [ "${cld_artificial##*.}" == "" ]
 then
-    cld_artificial='../input/cld.artificial.bin'
+    cld_artificial=${cld_artificial%.*}.bin
 else
-    if [ ${cld_artificial##*.} != 'bin' ] || [ ${cld_artificial##*.} != 'ctl' ]
-    then
-        cld_artificial=${cld_artificial%.*}.bin
-    else
-        cld_artificial=${cld_artificial}.bin
-    fi
+    cld_artificial=${cld_artificial}.bin
 fi
 ln -s $cld_artificial cldart
 
@@ -83,7 +75,6 @@ EOF
 
 # run greb model
 ./greb.x
-
 # create output directory if does not already exist
 if [ ! -d ../output ]; then mkdir ../output; fi
 
@@ -138,7 +129,7 @@ endvars
 EOF
 
 # control run
-if [ $output_control ]
+if [ $output_control -eq 1 ]
 then
 # rename control run output and move it to output folder
     mv control.bin ../output/control.${FILENAME}.bin

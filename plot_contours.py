@@ -7,12 +7,12 @@ filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-93
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 # filename_art_cloud = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.frominputX1.1'
 
-filename = input_file(filename,1)
-filename_base = input_file(filename_base,2)
+filename = input_(filename,1)
+filename_base = input_(filename_base,2)
 
 # Read artificial cloud (if any)
 filename_art_cloud=get_art_cloud_filename(filename)
-if filename_art_cloud: filename_art_cloud=input_file(filename_art_cloud,3)
+if filename_art_cloud: filename_art_cloud=input_(filename_art_cloud,3)
 
 name = os.path.split(filename)[1]
 print('\nSCENARIO_FILE: ' + name)
@@ -74,10 +74,10 @@ for var in data:
 #     plt.figure()
 #     plot_param.from_cube(var).to_seasonal_cycle().to_variation(data_base).assign_var().plot(outpath=outdir_variation)
 # Plot artificial clouds
-if filename_art_cloud:
-    print('Plotting artificial cloud "'+name_art_cloud+'"...')
-    plot_artificial_clouds(filename_art_cloud,outdir_diff)
-    plot_artificial_clouds(filename_art_cloud)
+# if filename_art_cloud:
+#     print('Plotting artificial cloud "'+name_art_cloud+'"...')
+#     plot_clouds(filename_art_cloud,outdir_diff)
+#     plot_clouds(filename_art_cloud)
 # # Delete netCDF files
 print('Deleting netCDF files...')
 os.remove(outfile)

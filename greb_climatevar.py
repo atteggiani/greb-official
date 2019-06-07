@@ -12,7 +12,7 @@ import iris.quickplot as qplt
 import iris.plot as iplt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-
+from datetime import datetime as dtime
 
 class constants:
     def __init__(self):
@@ -40,6 +40,9 @@ class constants:
     def cloud_file():
         return r'/Users/dmar0022/university/phd/greb-official/input/isccp.cloud_cover.clim'
     @staticmethod
+    def control_def_file():
+        return r'/Users/dmar0022/university/phd/greb-official/output/control.default'
+    @staticmethod
     def shape_for_bin():
     # 'Shape must be in the form (tdef,ydef,xdef)'
         return (constants.dt(),constants.dy(),constants.dx())
@@ -61,13 +64,34 @@ class constants:
 def create_clouds(time = None, longitude = None, latitude = None, value = 1,
                   cloud_base = None, outpath = None):
     '''
-    Create clouds from scratch, or by modifying an existent cloud matrix ("cloud_base").
-    Every coordinate can be specified in the form:
-    coord_name = [coord_min, coord_max] --> To apply changes only to that portion of that coordinate;
-    coord_name = ... --> To apply changes to all the domain of that coordinate.
-    coord_name can be time, longitude or latitude.
-    "value" can be an integer, float or function to be applied element-wise to the "cloud_base" (e.g. "lambda x: x*1.1")
+    - Create clouds from scratch, or by modifying an existent cloud matrix ("cloud_base").
+    - Every coordinate can be specified in the form:
+    - coord_name = [coord_min, coord_max] --> To apply changes only to that portion of that coordinate;
+    - If coord_name = 'time', default format is '%m-%d' (The year is automatically set at 2000)
+      (e.g. '03-04' for 4th March).
+      To specify your own formatn (for month and day) use the form: [time_min,time_max,format];
+    - If coord_name = 'latitude', the format is [lat_min,lat_max] in N-S degrees (-90 ÷ 90)
+      (e.g. [-20,40] is from 20S to 40N);
+    - If coord_name = 'longitude', the format is [lon_min,lon_max] in E-W degrees (-180 ÷ 180)
+      (e.g. [-10,70] is from 10E to 70W);
+    - "value" can be an integer, float or function to be applied element-wise to the "cloud_base"
+      (e.g. "lambda x: x*1.1").
     '''
+    def check_lon(min,max):
+        if (min*max) > 0:
+            return (min<max)
+        else:
+            return (min>max)
+    def switch_lon(x):
+        if isinstance(x,list):
+            if len(x) == 1:
+                return 360+x if x<0 else x
+            else:
+                return [360+k if k<0 else k for k in x]
+        else:
+            return 360+x if x<0 else x
+    def to_grebtime(date_str,fmt = '%y-%m-%d'):
+        return dtime.strptime(date_str,fmt).toordinal()*24+24
     # Define constants
     def_t=constants.t()
     def_lat=constants.lat()
@@ -76,35 +100,83 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     dx = constants.dx()
     dy = constants.dy()
     # Check coordinates and constrain them
-    if time not in [None,...]:
+    # TIME
+    if time is not None:
+        t_exc = '"time" must be an int or date_string in the form [time_min,time_max]\n'+\
+              'The date_string must have the format "%m-%d" (e.g. "03-04" for 4th March).\n'+\
+              'To specify your own format use the form: [time_min,time_max,format]'
+        fmt = '%y-%m-%d'
+        if not isinstance(time,list):
+            if (isinstance(time,float) or isinstance(time,int) or isinstance(time,str)):
+                time = [time]
+            else:
+                raise Exception(t_exc)
+        if len(time) == 1:
+            if isinstance(time[0],str):
+                t_min = t_max = to_grebtime('00-'+time[0])
+            else:
+                t_min = t_max = int(time[0])
+        elif len(time) == 2:
+            if isinstance(time[0],str):
+                t_min = to_grebtime('00-'+time[0])
+                t_max = to_grebtime('00-'+time[1])
+            else:
+                t_min = int(time[0])
+                t_max = int(time[1])
+        elif len(time) == 3:
+            if isinstance(time[0],str):
+                t_min = to_grebtime('00-'+time[0],'%y-'+time[2])
+                t_max = to_grebtime('00-'+time[1],'%y-'+time[2])
+            else:
+                raise Exception(t_exc)
+        else:
+            raise Exception(t_exc)
         ind_t=np.where((def_t>=t_min) & (def_t<=t_max))[0]
     else:
         ind_t=np.where((def_t>=def_t.min()) & (def_t<=def_t.max()))[0]
-    if longitude not in [None,...]:
+    # LONGITUDE
+    if longitude is not None:
+        lon_exc = '"longitude" must be a number or in the form [lon_min,lon_max]'
+        if (isinstance(longitude,float) or isinstance(longitude,int)):
+            longitude = [longitude]
         if isinstance(longitude,list):
-            lon_min = longitude[0]
-            lon_max = longitude[1]
-        elif (isinstance(longitude,float) or isinstance(longitude,int)):
-            lon_min = lon_max = longitude
+            if len(longitude) > 2:
+                raise Exception(lon_exc)
+            else:
+                if np.any(list(map(lambda l: (l > 180 or l < -180),longitude))):
+                        raise Exception('"longitude" must be in the range [-180÷180]')
+                lon_min,lon_max = switch_lon(longitude)
         else:
-            raise Exception('"longitude" must be a number or in the form [lon_min,lon_max]')
-        ind_lon=np.where((def_lon>=lon_min) & (def_lon<=lon_max))[0]
+            raise Exception(lon_exc)
+        if check_lon(lon_min,lon_max):
+            ind_lon=np.where((def_lon>=lon_min) & (def_lon<=lon_max))[0]
+        else:
+            ind_lon=np.where((def_lon>=lon_min) | (def_lon<=lon_max))[0]
     else:
         ind_lon=np.where((def_lon>=def_lon.min()) & (def_lon<=def_lon.max()))[0]
-    if latitude not in [None,...]:
+    # LATITUDE
+    if latitude is not None:
+        lat_exc = '"latitude" must be a number or in the form [lat_min,lat_max]'
+        if (isinstance(latitude,float) or isinstance(latitude,int)):
+            latitude = [latitude]
         if isinstance(latitude,list):
-            lat_min = latitude[0]
-            lat_max = latitude[1]
-        elif (isinstance(latitude,float) or isinstance(latitude,int)):
-            lat_min = lat_max = latitude
+            if len(latitude) > 2:
+                raise Exception(lat_exc)
+            else:
+                if np.any(list(map(lambda l: (l > 90 or l < -90),latitude))):
+                        raise Exception('"latitude" must be in the range [-90÷90]')
+                lat_min,lat_max = latitude
         else:
-            raise Exception('"latitude" must be a number or in the form [lat_min,lat_max]')
-        ind_lat=np.where((def_lat>=lat_min) & (def_lat<=lat_max))[0]
+            raise Exception(lat_exc)
+        if lat_min < lat_max:
+            ind_lat=np.where((def_lat>=lat_min) & (def_lat<=lat_max))[0]
+        else:
+            ind_lat=np.where((def_lat>=lat_min) | (def_lat<=lat_max))[0]
     else:
         ind_lat=np.where((def_lat>=def_lat.min()) & (def_lat<=def_lat.max()))[0]
     if cloud_base is not None:
         if isinstance(cloud_base,str):
-            data=data_from_binary(cloud_base,'raw')['cloud']
+            data=data_from_binary(cloud_base)['cloud']
         elif isinstance(cloud_base,np.ndarray):
             data = cloud_base
         else:
@@ -137,17 +209,17 @@ def get_art_cloud_filename(filename):
     else:
        return None
 
-def input_file(filename,argv=1):
+def input_(def_input,argv=1):
     if (argv < 1 or not isinstance(argv,int)): raise Exception('argv must be an integer greater than 0')
     try:
         input=sys.argv[argv]
         if ((argv == 1 and input == '-f') or (argv==2 and os.path.splitext(input)[1]=='.json')):
-            return rmext(filename)
+            return rmext(def_input) if isinstance(def_input,str) else def_input
         else:
-            return rmext(input)
-    except(IndexError): return rmext(filename)
+            return rmext(input) if isinstance(input,str) else input
+    except(IndexError): return rmext(def_input) if isinstance(def_input,str) else def_input
 
-def plot_artificial_clouds(filename,outpath=None):
+def plot_clouds(filename,outpath=None):
     filename = rmext(filename)
     name=os.path.split(filename)[1]
     if outpath is None:
@@ -180,7 +252,7 @@ def ignore_warnings():
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
-def data_from_binary(filename,flag='correct_units'):
+def data_from_binary(filename,flag='raw'):
     # 1st version, quicker but not precise on time corrections
     '''
     The flag can be:
@@ -444,7 +516,7 @@ def parsevar(cubes):
 
 class plot_param:
     ext = 'png'
-    defvar = ['tatmos','tsurf','tocean','precip','eva','qcrcl','vapor','ice']
+    defvar = ['tatmos','tsurf','tocean','precip','eva','qcrcl','vapor','ice','cloud']
     defflags = ['amean','seascyc','anom','variat']
 
     def __init__(self, cube = None, units = None, cmap = None, cmaplev = None,
@@ -700,8 +772,8 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-8,8+1,1))
-                self.set_cbticks(np.arange(-8,8+1,1))
+                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
+                self.set_cbticks(np.arange(-4,4+1,1))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-4,4+0.5,0.5))
                 self.set_cbticks(np.arange(-4,4+1,1))
@@ -780,125 +852,98 @@ class plot_param:
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-3,3+0.5,0.5))
                 self.set_cbticks(np.arange(-3,3+0.5,0.5))
-            else:
-                self.set_cmap(cm.Blues)
         return self
 
     def qcrcl(self):
         flags = self.get_flags()
         self.set_units('[mm][day-1]')
+        self.set_varname('qcrcl')
+        self.set_tit('Circulation')
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
-            txt = 'Anomaly'
             if 'amean' in flags:
-                self.set_varname('qcrcl.amean')
-                self.set_tit('Circulation Annual Mean '+txt)
                 self.set_cmaplev(np.arange(-2,2+0.2,0.2))
                 self.set_cbticks(np.arange(-2,2+0.4,0.4))
             elif 'seascyc' in flags:
-                self.set_varname('qcrcl.seascyc')
-                self.set_tit('Circulation Seasonal Cycle '+txt)
                 self.set_cmaplev(np.arange(-2,2+0.2,0.2))
                 self.set_cbticks(np.arange(-2,2+0.4,0.4))
-            else:
-                self.set_varname('qcrcl')
-                self.set_cmaplev(12)
-                self.set_tit('Circulation '+txt)
         else:
             if 'amean' in flags:
-                self.set_varname('qcrcl.amean')
                 self.set_cmaplev(np.arange(-8,8+1))
                 self.set_cbticks(np.arange(-8,8+2,2))
-                self.set_tit('Circulation Annual Mean')
             elif 'seascyc' in flags:
-                self.set_varname('qcrcl.seascyc')
                 self.set_cmaplev(np.arange(-6,6+1,1))
                 self.set_cmaplev(np.arange(-6,6+1,1))
-                self.set_tit('Circulation Seasonal Cycle')
-            else:
-                self.set_varname('qcrcl')
-                self.set_cmaplev(12)
-                self.set_tit('Circulation')
         return self
 
     def vapor(self):
         flags = self.get_flags()
         self.set_units(' ') # ADD UNITS!
+        self.set_varname('vapor')
+        self.set_tit('Specific Humidity')
+        self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
-            txt = 'Anomaly'
             if 'amean' in flags:
-                self.set_varname('vapor.amean')
-                self.set_tit('Specific Humidity Annual Mean '+txt)
                 self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
                 self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
             elif 'seascyc' in flags:
-                self.set_varname('vapor.seascyc')
-                self.set_tit('Specific Humidity Seasonal Cycle '+txt)
                 self.set_cmaplev(np.arange(-5e-3,5e-3+5e-4,5e-4))
                 self.set_cbticks(np.arange(-5e-3,5e-3+1e-3,1e-3))
-            else:
-                self.set_varname('vapor')
-                self.set_cmaplev(12)
-                self.set_tit('Specific Humidity '+txt)
         else:
             if 'amean' in flags:
-                self.set_varname('vapor.amean')
                 self.set_cmap(cm.Blues)
                 self.set_cmaplev(np.arange(0,0.02+0.002,0.002))
                 self.set_cbticks(np.arange(0,0.02+0.002,0.002))
-                self.set_cbextmode('max')
-                self.set_tit('Specific Humidity Annual Mean')
             elif 'seascyc' in flags:
-                self.set_varname('vapor.seascyc')
-                self.set_cmap(cm.RdBu_r)
                 self.set_cmaplev(np.arange(-0.01,0.01+0.001,0.001))
                 self.set_cbticks(np.arange(-0.01,0.01+0.002,0.002))
-                self.set_tit('Specific Humidity Seasonal Cycle')
-            else:
-                self.set_varname('vapor')
-                self.set_cmap(cm.Blues)
-                self.set_cmaplev(12)
-                self.set_tit('Specific Humidity')
         return self
 
     def ice(self):
         flags = self.get_flags()
         self.set_units(' ')
+        self.set_varname('ice')
+        self.set_tit('Ice')
+        self.set_cmap(cm.Blues_r)
         if 'anom' in flags:
-            txt = 'Anomaly'
             if 'amean' in flags:
-                self.set_varname('ice.amean')
-                self.set_tit('Ice Annual Mean '+txt)
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
-                self.set_varname('ice.seascyc')
-                self.set_tit('Ice Seasonal Cycle '+txt)
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
-            else:
-                self.set_varname('ice '+txt)
-                self.set_cmaplev(12)
-                self.set_tit('Ice')
         else:
             if 'amean' in flags:
-                self.set_varname('ice.amean')
-                self.set_cmap(cm.Blues_r)
                 self.set_cmaplev(np.arange(0,1+0.05,0.05))
                 self.set_cbticks(np.arange(0,1+0.1,0.1))
-                self.set_tit('Ice Annual Mean')
+                self.set_cbextmode('max')
             elif 'seascyc' in flags:
-                self.set_varname('ice.seascyc')
-                self.set_cmap(cm.RdBu_r)
                 self.set_cmaplev(np.arange(0,1+0.05,0.05))
                 self.set_cbticks(np.arange(0,1+0.1,0.1))
-                self.set_tit('Ice Seasonal Cycle')
-            else:
-                self.set_varname('ice')
-                self.set_cmap(cm.Blues_r)
-                self.set_cmaplev(12)
-                self.set_tit('Ice')
         return self
+
+        def cloud(self):
+            flags = self.get_flags()
+            self.set_units(' ')
+            self.set_varname('cloud')
+            self.set_tit('Clouds')
+            self.set_cmap(cm.Greys_r)
+            if 'anom' in flags:
+                if 'amean' in flags:
+                    self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                    self.set_cbticks(np.arange(-1,1+0.2,0.2))
+                elif 'seascyc' in flags:
+                    self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                    self.set_cbticks(np.arange(-1,1+0.2,0.2))
+            else:
+                if 'amean' in flags:
+                    self.set_cmaplev(np.arange(0,1+0.05,0.05))
+                    self.set_cbticks(np.arange(0,1+0.1,0.1))
+                    self.set_cbextmode('neither')
+                elif 'seascyc' in flags:
+                    self.set_cmaplev(np.arange(0,1+0.05,0.05))
+                    self.set_cbticks(np.arange(0,1+0.1,0.1))
+            return self
 
     def assign_var(self):
         name = self.get_defname()

@@ -1,8 +1,5 @@
 #!/bin/bash
 a=$1
-if [ -z "$a" ]
-then
-    echo 'none'
-else
-    echo "$a"
-fi
+((${a:="../artificial_clouds/cld.artificial.bin"}))
+echo "$a"
+exit
