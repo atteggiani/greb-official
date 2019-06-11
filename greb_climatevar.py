@@ -185,12 +185,12 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     else:
         data = np.zeros((dt,dy,dx))
     # Change values
-    if (isinstance(value,float) or isinstance(value,int)):
+    if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value
     elif callable(value):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value(data[ind_t[:,None,None],ind_lat[:,None],ind_lon])
     else:
-        raise Exception('"value" must be a number or function to apply to the "cloud_base" (e.g. "lambda x: x*1.1")')
+        raise Exception('"value" must be a number, numpy.ndarray or function to apply to the "cloud_base" (e.g. "lambda x: x*1.1")')
     # Correct value above 1 or below 0
     data=np.where(data<=1,data,1)
     data=np.where(data>=0,data,0)
@@ -258,9 +258,13 @@ def data_from_binary(filename,flag='raw'):
     The flag can be:
     "raw" --> no corrections are performed on the data
     "correct_units" --> units correction is performed for some variables ("precip","eva" and "qcrcl")
-    "correct_time" --> time correction is performed so that data belonging to the same MONTH will be averaged
+    "monthly" --> time correction is performed so that data belonging to the same MONTH will be averaged
+    "daily" --> time correction is performed so that data belonging to the same DAY OF THE YEAR will be averaged
     "correct_all" (default) --> correct both time values and units
     '''
+    # CHECK FLAGS
+    if flag not in ['raw','correct_units','monthly','daily','correct_all']:
+        raise Exception('Flag must be one of the following:\n"raw","correct_units","monthly","daily","correct_all"')
     # If flag is not "raw" use data_from_binary_2 (more precise)
     def data_from_binary_2(filename,flag='correct_all'):
     # 2nd version, slower but precise on time corrections
@@ -270,11 +274,15 @@ def data_from_binary(filename,flag='raw'):
         if flag in ['correct_units','correct_all']:
             data = parsevar(data)
         keys = [d.var_name for d in data]
-        if flag in ['correct_time','correct_all']:
+        if flag == 'monthly':
             for d in data: iris.coord_categorisation.add_month(d, 'time', name='month')
             data = [d.aggregated_by('month',iris.analysis.MEAN) for d in data]
+        elif flag in ['daily','correct_all']:
+            for d in data: iris.coord_categorisation.add_day_of_year(d, 'time', name='day_of_year')
+            data = [d.aggregated_by('day_of_year',iris.analysis.MEAN) for d in data]
         vals = [d.data.data.squeeze() for d in data]
         dic = dict(zip(keys,vals))
+        os.remove(filename+'.nc')
         return dic
 
     if flag != 'raw':
@@ -625,7 +633,8 @@ class plot_param:
         if statistics:
             txt = ('gmean = {:.3f}'+'\n'+\
                   'std = {:.3f}'+'\n'+\
-                  'rms = {:.3f}').format(self.gmean(),self.std(),self.rms())
+                  'rms = {:.3f}'+'\n'+\
+                  'rss = {:.3f}').format(self.gmean(),self.std(),self.rms(),self.rss())
             plt.text(1.05,1,txt,verticalalignment='top',horizontalalignment='right',
                      transform=plt.gca().transAxes,fontsize=6)
         if outpath is not None:
@@ -739,6 +748,9 @@ class plot_param:
 
     def rms(self):
         return np.sqrt((self.get_cube().data**2).mean())
+
+    def rss(self):
+        return np.sqrt((self.get_cube().data**2).sum())
 # ====================================================================
 # ====================================================================
 # ====================================================================
@@ -750,8 +762,8 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-8,8+1,1))
-                self.set_cbticks(np.arange(-8,8+1,1))
+                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
+                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-4,4+0.5,0.5))
                 self.set_cbticks(np.arange(-4,4+1,1))
@@ -772,8 +784,8 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-                self.set_cbticks(np.arange(-4,4+1,1))
+                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
+                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-4,4+0.5,0.5))
                 self.set_cbticks(np.arange(-4,4+1,1))
@@ -794,8 +806,8 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-                self.set_cbticks(np.arange(-4,4+1,1))
+                self.set_cmaplev(np.arange(-2,2+0.25,0.25))
+                self.set_cbticks(np.arange(-2,2+0.5,0.5))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
@@ -816,8 +828,8 @@ class plot_param:
         self.set_cmap(cm.GnBu)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-2,2+0.2,0.2))
                 self.set_cbticks(np.arange(-2,2+0.4,0.4))
@@ -839,8 +851,8 @@ class plot_param:
         self.set_cmap(cm.GnBu)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-2,2+0.2,0.2))
                 self.set_cbticks(np.arange(-2,2+0.4,0.4))
@@ -862,8 +874,8 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-2,2+0.2,0.2))
                 self.set_cbticks(np.arange(-2,2+0.4,0.4))
@@ -907,8 +919,8 @@ class plot_param:
         self.set_cmap(cm.Blues_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-                self.set_cbticks(np.arange(-1,1+0.2,0.2))
+                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
+                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))

@@ -154,5 +154,5 @@ EOF
 fi
 
 # Greb model output Analysys and plots
-python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default $cld_artificial
+# python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default $cld_artificial
 exit
