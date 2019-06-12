@@ -762,11 +762,11 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
-                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
             elif 'seascyc' in flags:
-                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-                self.set_cbticks(np.arange(-4,4+1,1))
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
             if 'amean' in flags:
                 self.set_cmaplev(np.arange(223,323+5,5))
@@ -784,11 +784,11 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
-                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
             elif 'seascyc' in flags:
-                self.set_cmaplev(np.arange(-4,4+0.5,0.5))
-                self.set_cbticks(np.arange(-4,4+1,1))
+                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
+                self.set_cbticks(np.arange(-2,2+0.4,0.4))
         else:
             if 'amean' in flags:
                 self.set_cmaplev(np.arange(223,323+5,5))
@@ -806,8 +806,8 @@ class plot_param:
         self.set_cmap(cm.RdBu_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.25,0.25))
-                self.set_cbticks(np.arange(-2,2+0.5,0.5))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
@@ -831,8 +831,8 @@ class plot_param:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
         else:
             if 'amean' in flags:
                 self.set_cmaplev(np.arange(0,9+1,1))
@@ -854,8 +854,8 @@ class plot_param:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
         else:
             if 'amean' in flags:
                 self.set_cmap(cm.Blues)
@@ -877,8 +877,8 @@ class plot_param:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
-                self.set_cmaplev(np.arange(-2,2+0.2,0.2))
-                self.set_cbticks(np.arange(-2,2+0.4,0.4))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
         else:
             if 'amean' in flags:
                 self.set_cmaplev(np.arange(-8,8+1))
@@ -919,8 +919,8 @@ class plot_param:
         self.set_cmap(cm.Blues_r)
         if 'anom' in flags:
             if 'amean' in flags:
-                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
-                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
             elif 'seascyc' in flags:
                 self.set_cmaplev(np.arange(-1,1+0.1,0.1))
                 self.set_cbticks(np.arange(-1,1+0.2,0.2))

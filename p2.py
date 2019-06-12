@@ -48,8 +48,3 @@ if time == 'annual':
     r_cld = dCLD/dT
     dCLD_new = -r_cld*(t_new_am-t_c_am)
     new_cloud = dCLD_new+cld_new
-
-# #========================================================================== #
-
-new_name = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.iter{}_{}'.format(niter,time)
-create_clouds(value = new_cloud,cloud_base=None, outpath=new_name)

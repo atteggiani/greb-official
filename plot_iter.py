@@ -3,17 +3,15 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
 time = input_('annual',1)
-corr = input_(False,2)
 
-corr_ = '_correct' if corr else ''
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 name_base = os.path.split(filename_base)[1]
 outfile_base = filename_base + '.nc'
 
 niter = 1
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}{}'.format(str(niter),time,corr_)
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(str(niter),time)
 rss = []
-while os.path.isfile(input_(filename)+'.bin'):
+while os.path.isfile(rmext(filename)+'.bin'):
     # Read scenario and base file
     filename_art_cloud=get_art_cloud_filename(filename)
     name = os.path.split(filename)[1]
@@ -40,9 +38,12 @@ while os.path.isfile(input_(filename)+'.bin'):
     # # plot annual mean
     plt.figure()
     TS.assign_var().plot(outpath=outdir_diff)
+    # # plot seasonal cycle
+    plt.figure()
+    plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base).assign_var().plot(outpath=outdir_diff)
     os.remove(outfile)
     niter += 1
-    filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}{}'.format(str(niter),time,corr_)
+    filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(str(niter),time)
 os.remove(outfile_base)
 
 # plot rss
