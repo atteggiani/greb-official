@@ -20,53 +20,85 @@ time = input_('annual',6)
 
 t_fname = lambda n: '/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(n,time)
 cld_fname = lambda n: get_art_cloud_filename(t_fname(n))
-t=lambda n: data_from_binary(t_fname(n))['tsurf']
-cld=lambda n: data_from_binary(cld_fname(n))['cloud']
-CLD = np.zeros([niter+1,48,96])
-T = np.zeros([niter+1,48,96])
+t=lambda n,t: data_from_binary(t_fname(n),t)['tsurf']
+cld=lambda n,t: data_from_binary(cld_fname(n),t)['cloud']
+dot_ = lambda x,y: np.einsum('abcd,abdf->abcf',x,y)
 
+time = 'monthly'
+niter = 20
 # #========================================================================== #
 # # ANNUAL MEAN DATA
-if time == 'annual':
+if time == 'annual_regress':
+    CLD = np.zeros([niter+1,48,96])
+    T = np.zeros([niter+1,48,96])
     T[0,...]=data_from_binary(t_old_init_fname)['tsurf'].mean(axis=0)
     T[1,...]=data_from_binary(t_new_init_fname)['tsurf'].mean(axis=0)
     CLD[0,...]=data_from_binary(cld_old_init_fname)['cloud'].mean(axis=0)
     CLD[1,...]=data_from_binary(cld_new_init_fname)['cloud'].mean(axis=0)
     if niter>1:
         for n in np.arange(1,niter):
-            T[n+1,...] = (t(n).mean(axis=0))
-            CLD[n+1,...] = (cld(n).mean(axis=0))
+            T[n+1,...] = (t(n,'raw').mean(axis=0))
+            CLD[n+1,...] = (cld(n,'raw').mean(axis=0))
+            CLD_base=cld(niter-1,'raw')
+    else:
+        CLD_base=data_from_binary(cld_new_init_fname)['cloud']
+
     dT = sub_each_n(T)
     dCLD = sub_each_n(CLD)
     Tc = data_from_binary(control_fname)['tsurf'].mean(axis=0)
     dT_c = T[-1,...]-Tc
 
-linv_ = lambda A: np.linalg.solve(A.T.dot(A), A.T)
-dot_ = lambda x,y: np.einsum('abcd,abdf->abcf',x,y)
-X = np.insert(dT[:,np.newaxis].transpose([2,3,0,1]),0,1,axis=3)
-y = dCLD[:,np.newaxis].transpose([2,3,0,1])
-THETA=dot_(np.linalg.inv(dot_(X.transpose([0,1,3,2]),X)),dot_(X.transpose([0,1,3,2]),y))
+    if niter > 1:
+        X = np.insert(dT[:,np.newaxis].transpose([2,3,0,1]),0,1,axis=3)
+        y = dCLD[:,np.newaxis].transpose([2,3,0,1])
+        THETA=dot_(np.linalg.inv(dot_(X.transpose([0,1,3,2]),X)),dot_(X.transpose([0,1,3,2]),y))
+        X_pred = np.insert(dT_c[np.newaxis,np.newaxis,:].transpose([2,3,0,1]),0,1,axis=2)
+        Y_pred = dot_(THETA.transpose([0,1,3,2]),X_pred)
+        new_cloud = (CLD[-1,...]-Y_pred).squeeze()
+        CLD_base=CLD_base[...,np.newaxis,np.newaxis]
+    else:
+        THETA=(dCLD/dT).squeeze()
+        Y_pred = THETA*dT_c
 
-i=4;j=22
-X_=np.insert(dT[:,i,j].reshape(20,1),0,1,axis=1)
-y_=dCLD[:,i,j].reshape(20,1)
-theta=np.linalg.inv(X_.T.dot(X_)).dot(X_.T.dot(y_))
-theta
-THETA[i,j,...]
-xx=np.arange(-2.5,0.5+0.1,0.1).reshape(31,1)
-yy=np.dot(np.insert(xx,0,1,axis=1),theta)
-plt.scatter(X,y)
-plt.plot(xx,yy)
+    new_cloud = (CLD_base-Y_pred).squeeze()
 
-a=np.arange(12).reshape(1,2,3,2)
-b=np.arange(4).reshape(1,2,2,1)
-a[0,0,...].dot(b[0,0,...])
-a[0,1,...].dot(b[0,1,...])
-a.transpose([0,1,3,2]),a)
+if time == 'monthly':
+    mdays=np.array([31,28,31,30,31,30,31,31,30,31,30,31])
+    CLD = np.zeros([niter+1,12,48,96])
+    T = np.zeros([niter+1,12,48,96])
+    T[0,...]=data_from_binary(t_old_init_fname,'monthly')['tsurf']
+    T[1,...]=data_from_binary(t_new_init_fname,'monthly')['tsurf']
+    CLD[0,...]=data_from_binary(cld_old_init_fname,'monthly')['cloud']
+    CLD[1,...]=data_from_binary(cld_new_init_fname,'monthly')['cloud']
+    if niter>1:
+        for n in np.arange(1,niter):
+            T[n+1,...] = t(n,'monthly')
+            CLD[n+1,...] = cld(n,'monthly')
+            CLD_base=cld(niter-1,'monthly')
+    else:
+        CLD_base=data_from_binary(cld_new_init_fname,'monthly')['cloud']
 
-r_cld = dCLD/dT
-dCLD_new = -r_cld*(t_new_am-t_c_am)
-new_cloud = dCLD_new+CLD[-1,...]
+    # dT = sub_each_n(T)
+    # dCLD = sub_each_n(CLD)
+    # Tc = data_from_binary(control_fname)['tsurf'].mean(axis=0)
+    # dT_c = T[-1,...]-Tc
+
+
+
+
+
+# i=20;j=50
+# x=np.insert(dT[:,i,j].reshape(niter,1),0,1,axis=1)
+# y=dCLD[:,i,j].reshape(niter,1)
+# x_pred = np.insert(dT_c[i,j,np.newaxis],0,1,axis=0).reshape(2,1)
+# plt.scatter(x[:,1],y)
+# theta=np.linalg.inv(x.T.dot(x)).dot(x.T.dot(y))
+# y_pred = theta.T.dot(x_pred)
+# xxx=np.insert(np.arange(-2,2,0.1).reshape(40,1),0,1,axis=1)
+# yyy=xxx.dot(theta)
+# plt.scatter(x[:,1],y,c='blue')
+# plt.plot(xxx[:,1],yyy,color='red')
+# plt.scatter(x_pred[1,:],y_pred,c='red')
 
 new_name = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.iter{}_{}'.format(niter,time)
 create_clouds(value = new_cloud,cloud_base=None, outpath=new_name)

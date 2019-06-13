@@ -210,13 +210,14 @@ def get_art_cloud_filename(filename):
        return None
 
 def input_(def_input,argv=1):
-    if (argv < 1 or not isinstance(argv,int)): raise Exception('argv must be an integer greater than 0')
+    if (argv < 1 or np.all([not isinstance(argv,int),not isinstance(argv,np.int64),not isinstance(argv,np.int32)])):
+        raise Exception('argv must be an integer greater than 0')
     try:
         input=sys.argv[argv]
         if ((argv == 1 and input == '-f') or (argv==2 and os.path.splitext(input)[1]=='.json')):
             return rmext(def_input) if isinstance(def_input,str) else def_input
         else:
-            return rmext(input) if isinstance(input,str) else input
+            return rmext(input) if isinstance(def_input,str) else type(def_input)(input)
     except(IndexError): return rmext(def_input) if isinstance(def_input,str) else def_input
 
 def plot_clouds(filename,outpath=None):
@@ -633,8 +634,7 @@ class plot_param:
         if statistics:
             txt = ('gmean = {:.3f}'+'\n'+\
                   'std = {:.3f}'+'\n'+\
-                  'rms = {:.3f}'+'\n'+\
-                  'rss = {:.3f}').format(self.gmean(),self.std(),self.rms(),self.rss())
+                  'rms = {:.3f}').format(self.gmean(),self.std(),self.rms())
             plt.text(1.05,1,txt,verticalalignment='top',horizontalalignment='right',
                      transform=plt.gca().transAxes,fontsize=6)
         if outpath is not None:
@@ -747,10 +747,9 @@ class plot_param:
         return self.get_cube().data.std()
 
     def rms(self):
-        return np.sqrt((self.get_cube().data**2).mean())
+        return np.sqrt(((self.get_cube().data)**2).mean())
 
-    def rss(self):
-        return np.sqrt((self.get_cube().data**2).sum())
+
 # ====================================================================
 # ====================================================================
 # ====================================================================
