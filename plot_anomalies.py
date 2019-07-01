@@ -53,8 +53,7 @@ for var in data:
 
 if filename_art_cloud:
     print('Plotting artificial cloud "'+name_art_cloud+'"...')
-    plot_clouds(filename_art_cloud,outdir_diff)
-    plot_clouds(filename_art_cloud)
+    plot_clouds(filename_art_cloud,outpath=outdir_diff)
 # # Delete netCDF files
 print('Deleting netCDF files...')
 os.remove(outfile)

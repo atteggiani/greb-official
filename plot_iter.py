@@ -1,11 +1,9 @@
 # LIBRARIES
 from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
-
-time = input_('monthly',1)
-
-niter = 1
-rms = []
+from matplotlib.ticker import MultipleLocator
+time = input_('monthly')
+filename_first_correction = input_(r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1',2)
 
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 name_base = os.path.split(filename_base)[1]
@@ -18,10 +16,11 @@ bin2netCDF(filename_original)
 data = parsevar(iris.load(filename_original+'.nc'))
 ts = data[[v.var_name for v in data].index('tsurf')]
 TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
+
+rms = []
 rms.append(TS.rms())
 os.remove(filename_original+'.nc')
 
-filename_first_correction = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1'
 bin2netCDF(filename_first_correction)
 data = parsevar(iris.load(filename_first_correction+'.nc'))
 ts = data[[v.var_name for v in data].index('tsurf')]
@@ -29,6 +28,7 @@ TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
 rms.append(TS.rms())
 os.remove(filename_first_correction+'.nc')
 
+niter = 1
 filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(str(niter),time)
 while os.path.isfile(rmext(filename)+'.bin'):
     # Read scenario and base file
@@ -73,4 +73,6 @@ plt.ylabel('rms')
 plt.xlim([1,niter+1])
 plt.xticks(ticks=np.arange(1,niter+2),labels=['O','O*']+np.arange(1,niter).tolist())
 plt.ylim(ymin=0)
+plt.gca().yaxis.set_minor_locator(MultipleLocator(0.1))
+plt.grid(which='both')
 plt.savefig(outdir+'/improvement_'+name+'.png')

@@ -6,6 +6,7 @@ import numpy as np
 import iris
 from cdo import Cdo
 import iris.coord_categorisation
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import iris.quickplot as qplt
@@ -13,6 +14,245 @@ import iris.plot as iplt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from datetime import datetime as dtime
+import matplotlib.dates as mdates
+from scipy import interpolate
+import matplotlib.gridspec as gridspec
+
+def plot_clouds_and_tsurf(*cloudfiles, coords = None, labels = None):
+    import matplotlib.ticker as ticker
+    def get_tsurf(*fnames):
+        mdays=np.array([31,28,31,30,31,30,31,31,30,31,30,31])
+        tsurf = []
+        for f in fnames:
+            t=data_from_binary(get_scenario_filename(f),'monthly')['tsurf']
+            t=np.repeat(t,mdays*2,axis=0)
+            s=t.shape
+            t_=np.zeros(s)
+            for i in np.arange(s[1]):
+                for j in np.arange(s[2]):
+                    t_[:,i,j]=spline_interp(t[:,i,j])
+            tsurf.append(t_)
+        return tsurf[0] if len(fnames) == 1 else tsurf
+
+    cloud = [data_from_binary(f)['cloud'] for f in cloudfiles]
+    tsurf=get_tsurf(*cloudfiles)
+
+    if coords is None:
+        coords = [(42,12.5),(-37.8,145),(-80,0),(80,0),(0,230)]
+    gs = gridspec.GridSpec(1, 2)
+    for coord in coords:
+        plt.figure()
+        ax1 = plt.subplot(gs[0, 0])
+        plot_annual_cycle(coord,*cloud,title = 'cloud annual cycle',name='cloud')
+        ax1.set_title('cloud annual cycle',fontsize=10)
+        l=ax1.get_legend()
+        if labels is not None:
+            for a,label in zip(l.get_texts(),labels): a.set_text(label)
+        l.set_bbox_to_anchor([-0.18,1.055])
+        for tick in ax1.xaxis.get_major_ticks(): tick.label.set_fontsize(7)
+        ax2 = plt.subplot(gs[0,1])
+        plot_annual_cycle(coord,*tsurf,title = 'tsurf annual cycle')
+        ax2.set_title('tsurf annual cycle',fontsize=10)
+        ax2.get_legend().remove()
+        for tick in ax2.xaxis.get_major_ticks(): tick.label.set_fontsize(7)
+        ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+        axP = plt.gcf().axes[1]
+        axP.set_position([0.265, 0.92, 0.5, 0.15])
+
+def spline_interp(y):
+    mdays=np.array([31,28,31,30,31,30,31,31,30,31,30,31])
+    y=y[np.cumsum(mdays*2)-1]
+    y=np.insert(y,0,y[0])
+    y=np.append(y,y[-1])
+    x = (constants.t()/24)[np.cumsum(mdays*2)-1]-15
+    x=np.insert(x,0,x[0]-30)
+    x=np.append(x,x[-1]+30)
+    spl= interpolate.UnivariateSpline(x, y,k=3,s=0)
+    x_=constants.t()/24
+    y_=spl(x_)
+    return y_
+
+def draw_point(lat,lon,ax=None):
+    x,y = to_Robinson_cartesian(lat,lon)
+    patch = lambda x,y: mpatches.Circle((x,y), radius=6e5, color = 'red', transform=ccrs.Robinson())
+    ax = plt.axes(projection=ccrs.Robinson()) if ax is None else plt.gca()
+    ax.stock_img()
+    ax.add_patch(patch(x,y))
+
+def plot_annual_cycle(coord,data,*args, legend=True, title='Annual Cycle',name = None):
+    from matplotlib.patheffects import Stroke
+
+    i,j=to_greb_indexes(*coord)
+    try:
+        y=data[:,i,j].data
+    except:
+        y=data[:,i,j]
+    x=constants.t().tolist()
+    x=[from_greb_time(a) for a in x]
+    plt.plot(x,y,label = '1')
+    if len(args) > 0:
+        for ind,d in enumerate(args):
+            try:
+                y_=d[:,i,j].data
+            except:
+                y_=d[:,i,j]
+            plt.plot(x,y_,label = '{}'.format(ind+2))
+        if legend: plt.legend(loc = 'lower left',bbox_to_anchor=(0,1.001))
+    plt.grid()
+    plt.title(title,fontsize=15)
+
+    if name == 'cloud':
+        plt.ylim([-0.02,1.02])
+        m1,m2=plt.xlim()
+        plt.hlines(0,m1-100,m2+100,linestyles='--',colors='black',linewidth=0.7)
+        plt.hlines(1,m1-100,m2+100,linestyles='--',colors='black',linewidth=0.7)
+        plt.xlim([m1,m2])
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+
+    # Create an inset GeoAxes showing the location of the Point.
+    sub_ax = plt.axes([0.8, 0.9, 0.2, 0.2], projection=ccrs.Robinson())
+    sub_ax.outline_patch.set_path_effects([Stroke(linewidth=1.5)])
+    draw_point(*coord,sub_ax)
+
+def to_Robinson_cartesian(lat,lon,lon_center = 0):
+    from scipy.interpolate import interp1d
+    from math import radians
+    center = radians(lon_center)
+    lon = radians(lon)
+    R = 6378137.1
+    lat_def = np.arange(0,95,5)
+    X_def= [1,0.9986,0.9954,0.9900,0.9822,0.9730,0.9600,0.9427,0.9216,0.8962,
+        0.8679,0.8350,0.7986,0.7597,0.7186,0.6732,0.6213,0.5722,0.5322]
+    Y_def= [0,0.0620,0.1240,0.1860,0.2480,0.3100,0.3720,0.4340,0.4958,0.5571,
+        0.6176,0.6769,0.7346,0.7903,0.8435,0.8936,0.9394,0.9761,1.0000]
+
+    iX = interp1d(lat_def, X_def, kind='cubic')
+    iY = interp1d(lat_def, Y_def, kind='cubic')
+    x = 0.8487*R*iX(np.abs(lat))*(lon-lon_center)
+    y = 1.3523*R*iY(np.abs(lat))
+    if (lon % 360) > 180:
+        x *= -1;
+    if lat < 0:
+        y *= -1
+    return x,y
+
+def multidim_regression(x,y,x_pred=None,axis=-1,multivariate=False):
+    '''
+    MULTIDIM_REGRESSION is a function to perform Linear Regression over multi-dimensional arrays.
+    It doesn't loop over the dimensions but makes use of np.einsum to perform inner products.
+    - Specify the "axis" to set the dimension along which the regression must be computed (default is last dimension).
+    - if "multivariate" flag is set to True, multivariate regression is computed;
+      the multiple features axis must be the one specified by "axis" + 1.
+    '''
+    def check_var(x):
+        if not isinstance(x,np.ndarray): x = np.array([x])
+        if len(x.shape) == 1: x= x.reshape([x.shape[0],1])
+        return x
+
+    def check_pred(x):
+        if not isinstance(x,np.ndarray): x = np.array([x])
+        if len(x.shape) == 1: x = x.reshape([1,x.shape[0]])
+        return x
+
+    def check_axis(x,axis,multivariate):
+        if axis == -1:
+            if multivariate:
+                if len(x.shape) > 2:
+                    axis = -2
+                else:
+                    axis = 0
+        if multivariate:
+            multivariate = axis+1
+            if multivariate >= len(x.shape):
+                raise Exception('Dimension mismatch')
+        else: multivariate = False
+
+        return axis,multivariate
+
+    def check_xy(x,y,axis,multivariate):
+        if len(x.shape)!=len(y.shape):
+            y = np.expand_dims(y,axis=axis+1)
+        dim1 = list(x.shape)
+        dim2 = list(y.shape)
+        if multivariate:
+            del dim1[multivariate]
+            del dim2[multivariate]
+        if not np.all(dim1==dim2):
+            raise Exception('x and y dimensions mismatch!')
+        return y
+
+    def check_xpred(x,x_pred,axis):
+        if len(x.shape)!=len(x_pred.shape):
+            x_pred = np.expand_dims(x_pred,axis=axis)
+        dim1  = list(x.shape)
+        dim2 = list(x_pred.shape)
+        del dim1[axis]
+        del dim2[axis]
+        dim1
+        dim2
+        if not np.all(dim1==dim2):
+            raise Exception('x and x_pred dimensions mismatch!')
+        return x_pred
+
+    def transpose_(V):
+        m=np.arange(len(V.shape)).tolist()
+        m = m[:-2] + [m[-1]] + [m[-2]]
+        return V.transpose(m)
+
+    def to_X(x,axis,multivariate):
+        X = to_Y(x,axis,multivariate)
+        return np.insert(X,0,1,axis = -1)
+
+    def to_Y(x,axis,multivariate):
+        m=np.arange(len(x.shape)).tolist()
+        m
+        try:
+            m.remove(axis)
+        except(ValueError):
+            del m[axis]
+        if multivariate:
+            try:
+                m.remove(multivariate)
+            except(ValueError):
+                del m[multivariate]
+            X = np.transpose(x,m+[axis,multivariate])
+        else:
+            X = np.transpose(x,m+[axis])[...,np.newaxis]
+        return X
+
+    def dot_(x,y):
+        if len(x.shape) > 2:
+            m1 = np.arange(len(x.shape)).tolist()
+            m2 = m1[:-2] + [m1[-1]] + [m1[-1]+1]
+            m3 = m1[:-1] + [m1[-1]+1]
+            return np.einsum(x,m1,y,m2,m3)
+        else:
+            return np.dot(x,y)
+
+    x = check_var(x)
+    y = check_var(y)
+    x_pred = check_pred(x_pred)
+    axis,multivariate = check_axis(x,axis,multivariate)
+    y = check_xy(x,y,axis,multivariate)
+    if x_pred is not None:
+        x_pred = check_xpred(x,x_pred,axis)
+        X_pred = to_X(x_pred,axis,multivariate)
+    Y=to_Y(y,axis,multivariate)
+    X=to_X(x,axis,multivariate)
+
+    if len(X.shape) > 2:
+        THETA=dot_(np.linalg.inv(dot_(transpose_(X),X)),dot_(transpose_(X),Y))
+        if x_pred is None:
+            return lambda t: dot_(to_X(t,axis,multivariate),THETA).squeeze()
+        else:
+            return dot_(X_pred,THETA).squeeze()
+    else:
+        THETA=np.linalg.inv(X.T.dot(X)).dot(X.T.dot(Y))
+        if x_pred is None:
+            return lambda t: to_X(t,axis,multivariate).dot(THETA)
+        else:
+            return x_pred.dot(THETA)
 
 class constants:
     def __init__(self):
@@ -21,31 +261,64 @@ class constants:
     @staticmethod
     def t():
         return np.arange(17522904.,17531652.+12,12)
+
     @staticmethod
     def lat():
         return np.arange(-88.125,88.125+3.75,3.75)
+
     @staticmethod
     def lon():
         return np.arange(0,360,3.75)
+
     @staticmethod
     def dx():
         return len(constants.lon())
+
     @staticmethod
     def dy():
         return len(constants.lat())
+
     @staticmethod
     def dt():
         return len(constants.t())
+
     @staticmethod
-    def cloud_file():
-        return r'/Users/dmar0022/university/phd/greb-official/input/isccp.cloud_cover.clim'
+    def greb_folder():
+        return r'/Users/dmar0022/university/phd/greb-official'
+
+    @staticmethod
+    def figures_folder():
+        return constants.greb_folder()+'/figures'
+
+    @staticmethod
+    def output_folder():
+        return constants.greb_folder()+'/output'
+
+    @staticmethod
+    def scenario_without_artificial_cloud():
+        return constants.output_folder()+'/scenario.exp-20.2xCO2'
+
+    @staticmethod
+    def cloud_def_file():
+        return constants.greb_folder()+'/input/isccp.cloud_cover.clim'
+
+    @staticmethod
+    def cloud_folder():
+        return constants.greb_folder()+'/artificial_clouds'
+
+    @staticmethod
+    def cloud_figures_folder():
+        return constants.cloud_folder()+'/art_clouds_figures'
+
     @staticmethod
     def control_def_file():
-        return r'/Users/dmar0022/university/phd/greb-official/output/control.default'
+        return constants.output_folder()+'/control.default'
+
     @staticmethod
     def shape_for_bin():
     # 'Shape must be in the form (tdef,ydef,xdef)'
         return (constants.dt(),constants.dy(),constants.dx())
+
     @staticmethod
     def to_shape_for_bin(data):
         def_sh = constants.shape_for_bin()
@@ -60,6 +333,29 @@ class constants:
             indx=sh.index(def_sh[2])
             data = data.transpose(indt,indy,indx)
         return data
+
+def to_greb_indexes(lat,lon):
+    if lat < -90 or lat > 90: raise Exception('GREB lat ranges between (-90 ÷ 90) degrees')
+    if lon < 0 or lat > 360: raise Exception('GREB lon ranges between (0 ÷ 360) degrees')
+    lat_def = constants.lat().tolist()
+    lon_def = constants.lon().tolist()
+    i = lat_def.index(min(lat_def, key=lambda x:abs(x-lat)))
+    j = lon_def.index(min(lon_def, key=lambda x:abs(x-lon)))
+    return i,j
+
+def to_greb_time(date_str, fmt = '%y-%m-%d'):
+    return dtime.strptime(date_str,fmt).toordinal()*24+24
+
+def from_greb_time(greb_timenum,fmt = None):
+    import math
+    timenum = math.ceil((greb_timenum/24)-1)
+    if fmt is None:
+        return dtime.fromordinal(timenum)
+    elif isinstance(fmt,str):
+        return dtime.fromordinal(timenum).strftime(fmt)
+    else:
+        raise Exception('"fmt" must be either None or a valid date format')
+        return
 
 def create_clouds(time = None, longitude = None, latitude = None, value = 1,
                   cloud_base = None, outpath = None):
@@ -90,8 +386,6 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
                 return [360+k if k<0 else k for k in x]
         else:
             return 360+x if x<0 else x
-    def to_grebtime(date_str,fmt = '%y-%m-%d'):
-        return dtime.strptime(date_str,fmt).toordinal()*24+24
     # Define constants
     def_t=constants.t()
     def_lat=constants.lat()
@@ -113,20 +407,20 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
                 raise Exception(t_exc)
         if len(time) == 1:
             if isinstance(time[0],str):
-                t_min = t_max = to_grebtime('00-'+time[0])
+                t_min = t_max = to_greb_time('00-'+time[0])
             else:
                 t_min = t_max = int(time[0])
         elif len(time) == 2:
             if isinstance(time[0],str):
-                t_min = to_grebtime('00-'+time[0])
-                t_max = to_grebtime('00-'+time[1])
+                t_min = to_greb_time('00-'+time[0])
+                t_max = to_greb_time('00-'+time[1])
             else:
                 t_min = int(time[0])
                 t_max = int(time[1])
         elif len(time) == 3:
             if isinstance(time[0],str):
-                t_min = to_grebtime('00-'+time[0],'%y-'+time[2])
-                t_max = to_grebtime('00-'+time[1],'%y-'+time[2])
+                t_min = to_greb_time('00-'+time[0],'%y-'+time[2])
+                t_max = to_greb_time('00-'+time[1],'%y-'+time[2])
             else:
                 raise Exception(t_exc)
         else:
@@ -200,14 +494,28 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
         outpath='/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.ctl'
     create_bin_ctl(outpath,vars)
 
-def get_art_cloud_filename(filename):
+def get_art_cloud_filename(sc_filename):
     txt='exp-930.geoeng.'
-    if txt in filename:
-        art_cloud_name = filename[filename.index(txt)+len(txt):]
-        return os.path.join('/Users/dmar0022/university/phd/greb-official/artificial_clouds',
-                           art_cloud_name)
+    sc_filename = rmext(os.path.split(sc_filename)[1])
+    if txt in sc_filename:
+        art_cloud_name = sc_filename[sc_filename.index(txt)+len(txt):]
+        return os.path.join(constants.cloud_folder(), art_cloud_name)
+    elif 'exp-20.2xCO2' in sc_filename:
+        return constants.cloud_def_file()
     else:
-       return None
+       raise Exception('The scenario filename must contain "exp-930.geoeng"')
+
+def get_scenario_filename(cld_filename):
+    txt='cld.artificial'
+    cld_filename = rmext(cld_filename)
+    cld_filename_ = os.path.split(cld_filename)[1]
+    if txt in cld_filename_:
+        sc_name = 'scenario.exp-930.geoeng.'+cld_filename_
+    elif cld_filename == constants.cloud_def_file():
+        sc_name = 'scenario.exp-20.2xCO2'
+    else:
+       raise Exception('The artificial cloud filename must contain "cld.artificial"')
+    return os.path.join(constants.output_folder(),sc_name)
 
 def input_(def_input,argv=1):
     if (argv < 1 or np.all([not isinstance(argv,int),not isinstance(argv,np.int64),not isinstance(argv,np.int32)])):
@@ -220,38 +528,71 @@ def input_(def_input,argv=1):
             return rmext(input) if isinstance(def_input,str) else type(def_input)(input)
     except(IndexError): return rmext(def_input) if isinstance(def_input,str) else def_input
 
-def plot_clouds(filename,outpath=None):
-    filename = rmext(filename)
-    name=os.path.split(filename)[1]
-    if outpath is None:
-        outpath = '/Users/dmar0022/university/phd/greb-official/'+\
-                  'artificial_clouds/art_clouds_figures'
+def plot_clouds(filename,filename_base = None,outpath=None):
+    from random import randint
+    from datetime import timedelta
+
+    fl=False
+    if filename_base is not None:
+        fl=True
+        data_base=cube_from_binary(filename_base)
+        name_base=os.path.split(rmext(filename_base))[1]
+
+    data=cube_from_binary(filename)
+    name=os.path.split(rmext(filename))[1]
+    if outpath is not None:
+        outpath=os.path.join(outpath,name)
         os.makedirs(outpath,exist_ok=True)
+        if fl:
+            outpath_diff=os.path.join(outpath,name,'diff_'+name_base)
+            os.makedirs(outpath_diff,exist_ok=True)
     else:
-        if outpath: os.makedirs(outpath,exist_ok=True)
-        else: outpath = None
-    bin2netCDF(filename)
-    data=iris.util.squeeze(iris.load_cube(filename+'.nc'))
-# Plot annual data
-    am= plot_param.from_cube(annual_mean(data), cmap=cm.Greys_r, varname = name+'.amean',
-                             cmaplev = np.arange(0,1+0.05,0.05),units = '',
-                             cbticks = np.arange(0,1+0.1,0.1),
-                             cbextmode = 'neither', tit = name + ' Annual Mean')
+        outpath_diff = None
+
+
+
+    # Plot annual data
     plt.figure()
-    am.plot(outpath = outpath, coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
-# Plot seasonal cycle data
-    am= plot_param.from_cube(seasonal_cycle(data), varname = name+'.seascyc',
-                             cmaplev = np.arange(-1,1+0.1,0.1),units = '',
-                             cbticks = np.arange(-1,1+0.2,0.2),
-                             tit = name + ' Seasonal Cycle')
+    plot_param.from_cube(data).to_annual_mean().assign_var().plot(outpath = outpath,
+                            coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
+    if fl:
+        plt.figure()
+        plot_param.from_cube(data).to_annual_mean().to_anomalies(data_base).assign_var().plot(outpath = outpath_diff,
+                                coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
+
+    # Plot seasonal cycle datad
     plt.figure()
-    am.plot(outpath = outpath, coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
+    plot_param.from_cube(data).to_seasonal_cycle().assign_var().plot(outpath = outpath,
+                            coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
+    if fl:
+        plt.figure()
+        plot_param.from_cube(data).to_seasonal_cycle().to_anomalies(data_base).assign_var().plot(outpath = outpath_diff,
+                                coast_param = {'edgecolor':[0,.5,0.3]},statistics=True)
+    # Plot time data over 3 points (to check seasonality and general diagnostic)
+    P = [(42,12.5),(-37.8,145),(-80,0),(0,230)]
+    for p in P:
+        plt.figure()
+        if fl:
+            plot_annual_cycle(p,data,data_base,title = 'Cloud annual cycle',name = 'cloud')
+        else:
+            plot_annual_cycle(p,data,title = 'Cloud annual cycle',name = 'cloud')
+
     os.remove(filename+'.nc')
+    if filename_base is not None: os.remove(filename_base+'.nc')
 
 def ignore_warnings():
 # Ignore warnings
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
+
+def cube_from_binary(filename):
+    filename = rmext(filename)
+    bin2netCDF(filename)
+    cube=parsevar(iris.load(filename+'.nc'))
+    if len(cube) == 1:
+        return iris.util.squeeze(cube[0])
+    else:
+        return [iris.util.squeeze(x) for x in cube]
 
 def data_from_binary(filename,flag='raw'):
     # 1st version, quicker but not precise on time corrections
@@ -618,6 +959,7 @@ class plot_param:
              coast_param = {},
              land_param = {'edgecolor':'face', 'facecolor':'black'},
              title_param = {'fontsize':12},
+             colorbar_param = {},
              save_param = {'dpi':300, 'bbox_inches':'tight'},
              statistics=True):
         # plt.figure(figsize=(12, 8))
@@ -627,9 +969,9 @@ class plot_param:
         plt.gca().add_feature(cfeature.COASTLINE,**coast_param)
         if self.get_defname() == 'tocean':
             plt.gca().add_feature(cfeature.NaturalEarthFeature('physical',
-                           'land', '110m', **land_param))
-        plt.colorbar(orientation='horizontal',extend = self.get_cbextmode(),
-                     label = self.get_units(), ticks = self.get_cbticks())
+                                                  'land', '110m', **land_param))
+        plt.colorbar(orientation='horizontal', extend=self.get_cbextmode(),
+                     label=self.get_units(), ticks=self.get_cbticks(),**colorbar_param)
         plt.title(self.get_tit(),**title_param)
         if statistics:
             txt = ('gmean = {:.3f}'+'\n'+\
@@ -933,28 +1275,28 @@ class plot_param:
                 self.set_cbticks(np.arange(0,1+0.1,0.1))
         return self
 
-        def cloud(self):
-            flags = self.get_flags()
-            self.set_units(' ')
-            self.set_varname('cloud')
-            self.set_tit('Clouds')
-            self.set_cmap(cm.Greys_r)
-            if 'anom' in flags:
-                if 'amean' in flags:
-                    self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-                    self.set_cbticks(np.arange(-1,1+0.2,0.2))
-                elif 'seascyc' in flags:
-                    self.set_cmaplev(np.arange(-1,1+0.1,0.1))
-                    self.set_cbticks(np.arange(-1,1+0.2,0.2))
-            else:
-                if 'amean' in flags:
-                    self.set_cmaplev(np.arange(0,1+0.05,0.05))
-                    self.set_cbticks(np.arange(0,1+0.1,0.1))
-                    self.set_cbextmode('neither')
-                elif 'seascyc' in flags:
-                    self.set_cmaplev(np.arange(0,1+0.05,0.05))
-                    self.set_cbticks(np.arange(0,1+0.1,0.1))
-            return self
+    def cloud(self):
+        flags = self.get_flags()
+        self.set_units(' ')
+        self.set_varname('cloud')
+        self.set_tit('Clouds')
+        self.set_cmap(cm.Greys_r)
+        if 'anom' in flags:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
+                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-0.5,0.5+0.05,0.05))
+                self.set_cbticks(np.arange(-0.5,0.5+0.1,0.1))
+        else:
+            if 'amean' in flags:
+                self.set_cmaplev(np.arange(0,1+0.05,0.05))
+                self.set_cbticks(np.arange(0,1+0.1,0.1))
+                self.set_cbextmode('neither')
+            elif 'seascyc' in flags:
+                self.set_cmaplev(np.arange(-1,1+0.1,0.1))
+                self.set_cbticks(np.arange(-1,1+0.2,0.2))
+        return self
 
     def assign_var(self):
         name = self.get_defname()

@@ -84,7 +84,6 @@ FILENAME=exp-${EXP}.geoeng.${artcldname}
 
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin
-mv scenario.gmean.bin ../output/scenario.gmean.${FILENAME}.bin
 
 # calculate months of scenario run for header file
 MONTHS=$(($YEARS*12))
@@ -109,7 +108,10 @@ qcrcl 1 0 qcrcl
 endvars
 EOF
 
-cat >../output/scenario.gmean.${FILENAME}.ctl <<EOF
+if [ -f 'scenario.gmean.bin' ]
+then
+    mv scenario.gmean.bin ../output/scenario.gmean.${FILENAME}.bin
+    cat >../output/scenario.gmean.${FILENAME}.ctl <<EOF
 dset ^scenario.gmean.${FILENAME}.bin
 undef 9.e27
 xdef 12 linear 0 3.75
@@ -127,7 +129,7 @@ eva 1 0 eva
 qcrcl 1 0 qcrcl
 endvars
 EOF
-
+fi
 # control run
 if [ $output_control -eq 1 ]
 then

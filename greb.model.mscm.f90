@@ -277,7 +277,7 @@ subroutine greb_model
 ! open output files
   open(101,file='control.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
   open(102,file='scenario.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(103,file='scenario.gmean.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal)
+  ! open(103,file='scenario.gmean.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal)
 
   dTrad = -0.16*Tclim -5. ! offset Tatmos-rad
 
@@ -1492,15 +1492,15 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
          write(iunit,rec=8*irec-1) evamm/ndm
          write(iunit,rec=8*irec) qcrclmm/ndm
 
-         iyrec=floor(float((irec-1)/12))
-         write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
-         write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
-         write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
-         write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
-         write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
-         write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
-         write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
-         write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
+         ! iyrec=floor(float((irec-1)/12))
+         ! write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
+         ! write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
+         ! write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
+         ! write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
+         ! write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
+         ! write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
+         ! write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
+         ! write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
      end if
      Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
      mon=mon+1; if (mon==13) mon=1
