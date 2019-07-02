@@ -23,7 +23,7 @@ t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2"}
 t_iter="$t_new"
 # Initialize iterations
 niter=1
-while (( $niter < $niter+$tot_iter )); do
+while (( $niter <= $tot_iter )); do
     echo -e "\nIter. ${niter}/${tot_iter} -- Creating new cloud matrix..."
     python cloud_iteration.py $niter $t $t_new $t_new_r $t_old_r
     pad="Iter. ${niter}/${tot_iter} "

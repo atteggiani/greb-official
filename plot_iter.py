@@ -5,6 +5,9 @@ from matplotlib.ticker import MultipleLocator
 time = input_('monthly')
 filename_first_correction = input_(r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1',2)
 
+rms_a = []
+rms_s = []
+
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 name_base = os.path.split(filename_base)[1]
 outfile_base = filename_base + '.nc'
@@ -16,16 +19,18 @@ bin2netCDF(filename_original)
 data = parsevar(iris.load(filename_original+'.nc'))
 ts = data[[v.var_name for v in data].index('tsurf')]
 TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
-
-rms = []
-rms.append(TS.rms())
+rms_a.append(TS.rms())
+TS=plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base)
+rms_s.append(TS.rms())
 os.remove(filename_original+'.nc')
 
 bin2netCDF(filename_first_correction)
 data = parsevar(iris.load(filename_first_correction+'.nc'))
 ts = data[[v.var_name for v in data].index('tsurf')]
 TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
-rms.append(TS.rms())
+rms_a.append(TS.rms())
+TS=plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base)
+rms_s.append(TS.rms())
 os.remove(filename_first_correction+'.nc')
 
 niter = 1
@@ -51,23 +56,27 @@ while os.path.isfile(rmext(filename)+'.bin'):
     data = parsevar(iris.load(outfile))
 
     ts = data[[v.var_name for v in data].index('tsurf')]
+    # ANNUAL MEAN
     TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
-    rms.append(TS.rms())
+    rms_a.append(TS.rms())
     # # plot annual mean
     plt.figure()
     TS.assign_var().plot(outpath=outdir_diff)
+    # SEASONAL CYCLE
+    TS=plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base)
+    rms_s.append(TS.rms())
     # # plot seasonal cycle
     plt.figure()
-    plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base).assign_var().plot(outpath=outdir_diff)
+    TS.assign_var().plot(outpath=outdir_diff)
     os.remove(outfile)
     niter += 1
     filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(str(niter),time)
 os.remove(outfile_base)
 
-# plot rms
+# plot rms_a
 plt.figure()
-plt.plot(np.arange(1,niter+2),rms,linewidth=1.5,color='Red')
-plt.title('Algorithm improvement')
+plt.plot(np.arange(1,niter+2),rms_a,linewidth=1.5,color='Red')
+plt.title('Improvement Annual Mean')
 plt.xlabel('N. Iteration')
 plt.ylabel('rms')
 plt.xlim([1,niter+1])
@@ -75,4 +84,17 @@ plt.xticks(ticks=np.arange(1,niter+2),labels=['O','O*']+np.arange(1,niter).tolis
 plt.ylim(ymin=0)
 plt.gca().yaxis.set_minor_locator(MultipleLocator(0.1))
 plt.grid(which='both')
-plt.savefig(outdir+'/improvement_'+name+'.png')
+plt.savefig(outdir+'/improvement_amean_'+name+'.png')
+
+# plot rms_s
+plt.figure()
+plt.plot(np.arange(1,niter+2),rms_s,linewidth=1.5,color='Red')
+plt.title('Improvement Seasonal Cycle')
+plt.xlabel('N. Iteration')
+plt.ylabel('rms')
+plt.xlim([1,niter+1])
+plt.xticks(ticks=np.arange(1,niter+2),labels=['O','O*']+np.arange(1,niter).tolist())
+plt.ylim(ymin=0)
+plt.gca().yaxis.set_minor_locator(MultipleLocator(0.1))
+plt.grid(which='both')
+plt.savefig(outdir+'/improvement_seascyc_'+name+'.png')
