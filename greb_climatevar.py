@@ -18,13 +18,29 @@ import matplotlib.dates as mdates
 from scipy import interpolate
 import matplotlib.gridspec as gridspec
 
+def cube_from_data(data, var_name = None, units = None, time = None, latitude=None, longitude=None):
+    from cf_units import Unit
+    if time is not None:
+        tunits=Unit('hours since 1-1-1 00:00:00', calendar='gregorian')
+        time = iris.coords.DimCoord(time,standard_name='time',units=tunits)
+    if latitude is not None:
+        latitude = iris.coords.DimCoord(latitude,standard_name='latitude',units='degrees')
+    if longitude is not None:
+        longitude = iris.coords.DimCoord(longitude,standard_name='longitude',units='degrees'
+                                                               ,circular = True)
+    coords=list(filter(None,[time,latitude,longitude]))
+    coords_and_dims = list(zip(coords,np.arange(len(coords))))
+    def_cube = iris.cube.Cube(data, var_name=var_name, units = units,
+        dim_coords_and_dims = coords_and_dims)
+    return def_cube
+
 def plot_clouds_and_tsurf(*cloudfiles, coords = None, labels = None):
     import matplotlib.ticker as ticker
     def get_tsurf(*fnames):
         mdays=np.array([31,28,31,30,31,30,31,31,30,31,30,31])
         tsurf = []
         for f in fnames:
-            t=data_from_binary(get_scenario_filename(f),'monthly')['tsurf']
+            t=data_from_binary(f,'monthly')['tsurf']
             t=np.repeat(t,mdays*2,axis=0)
             s=t.shape
             t_=np.zeros(s)
@@ -32,32 +48,59 @@ def plot_clouds_and_tsurf(*cloudfiles, coords = None, labels = None):
                 for j in np.arange(s[2]):
                     t_[:,i,j]=spline_interp(t[:,i,j])
             tsurf.append(t_)
-        return tsurf[0] if len(fnames) == 1 else tsurf
+        return tsurf
 
     cloud = [data_from_binary(f)['cloud'] for f in cloudfiles]
-    tsurf=get_tsurf(*cloudfiles)
+    cloud_ctr = data_from_binary(constants.cloud_def_file())['cloud']
+    tfiles = [get_scenario_filename(f) for f in cloudfiles]
+    tsurf = get_tsurf(*tfiles)
+    tsurf_ctr = get_tsurf(constants.control_def_file())
 
+    cloud_anomaly = [c-cloud_ctr for c in cloud]
+    tsurf_anomaly = [(t-tsurf_ctr).squeeze() for t in tsurf]
     if coords is None:
         coords = [(42,12.5),(-37.8,145),(-80,0),(80,0),(0,230)]
-    gs = gridspec.GridSpec(1, 2)
+    gs = gridspec.GridSpec(2, 2, wspace=0.25, hspace=0.4)
+
     for coord in coords:
         plt.figure()
+
         ax1 = plt.subplot(gs[0, 0])
-        plot_annual_cycle(coord,*cloud,title = 'cloud annual cycle',name='cloud')
-        ax1.set_title('cloud annual cycle',fontsize=10)
+        plot_annual_cycle(coord,*cloud_anomaly)
+        ax1.set_ylim([-1,1])
+        ax1.set_title('cloud anomaly annual cycle',fontsize=10)
         l=ax1.get_legend()
         if labels is not None:
             for a,label in zip(l.get_texts(),labels): a.set_text(label)
-        l.set_bbox_to_anchor([-0.18,1.055])
-        for tick in ax1.xaxis.get_major_ticks(): tick.label.set_fontsize(7)
+        l.set_bbox_to_anchor([-0.18,1.2])
+        for tick in ax1.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+
         ax2 = plt.subplot(gs[0,1])
-        plot_annual_cycle(coord,*tsurf,title = 'tsurf annual cycle')
-        ax2.set_title('tsurf annual cycle',fontsize=10)
+        plot_annual_cycle(coord,*tsurf_anomaly)
+        ax2.set_ylim([-5,5])
+        ax2.set_title('tsurf anomaly annual cycle',fontsize=10)
         ax2.get_legend().remove()
-        for tick in ax2.xaxis.get_major_ticks(): tick.label.set_fontsize(7)
-        ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+        for tick in ax2.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+        ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+
+        ax3 = plt.subplot(gs[1, 0])
+        plot_annual_cycle(coord,*cloud)
+        ax3.set_ylim([0,1])
+        ax3.set_title('cloud annual cycle',fontsize=10)
+        ax3.get_legend().remove()
+        for tick in ax3.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+
+        ax4 = plt.subplot(gs[1,1])
+        plot_annual_cycle(coord,*tsurf)
+        ax4.set_ylim([223,323])
+        ax4.set_title('tsurf annual cycle',fontsize=10)
+        ax4.get_legend().remove()
+        for tick in ax4.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+        ax4.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+
         axP = plt.gcf().axes[1]
-        axP.set_position([0.265, 0.92, 0.5, 0.15])
+        axP.set_position([0.265, 0.95, 0.5, 0.15])
+
 
 def spline_interp(y):
     mdays=np.array([31,28,31,30,31,30,31,31,30,31,30,31])
@@ -74,34 +117,29 @@ def spline_interp(y):
 
 def draw_point(lat,lon,ax=None):
     x,y = to_Robinson_cartesian(lat,lon)
-    patch = lambda x,y: mpatches.Circle((x,y), radius=6e5, color = 'red', transform=ccrs.Robinson())
+    patch = lambda x,y: mpatches.Circle((x,y), radius=6e5, color = 'red',
+                                                      transform=ccrs.Robinson())
     ax = plt.axes(projection=ccrs.Robinson()) if ax is None else plt.gca()
     ax.stock_img()
     ax.add_patch(patch(x,y))
 
-def plot_annual_cycle(coord,data,*args, legend=True, title='Annual Cycle',name = None):
+def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None, draw_point_flag = True):
     from matplotlib.patheffects import Stroke
 
     i,j=to_greb_indexes(*coord)
-    try:
-        y=data[:,i,j].data
-    except:
-        y=data[:,i,j]
     x=constants.t().tolist()
     x=[from_greb_time(a) for a in x]
-    plt.plot(x,y,label = '1')
-    if len(args) > 0:
-        for ind,d in enumerate(args):
-            try:
-                y_=d[:,i,j].data
-            except:
-                y_=d[:,i,j]
-            plt.plot(x,y_,label = '{}'.format(ind+2))
-        if legend: plt.legend(loc = 'lower left',bbox_to_anchor=(0,1.001))
+    for ind,d in enumerate(data):
+        try:
+            y=d[:,i,j].data
+        except:
+            y=d[:,i,j]
+        plt.plot(x,y,label = '{}'.format(ind+1))
+    if legend: plt.legend(loc = 'lower left',bbox_to_anchor=(0,1.001))
     plt.grid()
     plt.title(title,fontsize=15)
 
-    if name == 'cloud':
+    if var == 'cloud':
         plt.ylim([-0.02,1.02])
         m1,m2=plt.xlim()
         plt.hlines(0,m1-100,m2+100,linestyles='--',colors='black',linewidth=0.7)
@@ -110,10 +148,11 @@ def plot_annual_cycle(coord,data,*args, legend=True, title='Annual Cycle',name =
     plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
 
-    # Create an inset GeoAxes showing the location of the Point.
-    sub_ax = plt.axes([0.8, 0.9, 0.2, 0.2], projection=ccrs.Robinson())
-    sub_ax.outline_patch.set_path_effects([Stroke(linewidth=1.5)])
-    draw_point(*coord,sub_ax)
+    if draw_point_flag:
+        # Create an inset GeoAxes showing the location of the Point.
+        sub_ax = plt.axes([0.8, 0.9, 0.2, 0.2], projection=ccrs.Robinson())
+        sub_ax.outline_patch.set_path_effects([Stroke(linewidth=1.5)])
+        draw_point(*coord,sub_ax)
 
 def to_Robinson_cartesian(lat,lon,lon_center = 0):
     from scipy.interpolate import interp1d
@@ -295,7 +334,11 @@ class constants:
         return constants.greb_folder()+'/output'
 
     @staticmethod
-    def scenario_without_artificial_cloud():
+    def input_folder():
+        return constants.greb_folder()+'/input'
+
+    @staticmethod
+    def scenario_2xCO2():
         return constants.output_folder()+'/scenario.exp-20.2xCO2'
 
     @staticmethod
@@ -303,8 +346,16 @@ class constants:
         return constants.greb_folder()+'/input/isccp.cloud_cover.clim'
 
     @staticmethod
+    def solar_radiation_def_file():
+        return constants.greb_folder()+'/input/solar_radiation.clim'
+
+    @staticmethod
     def cloud_folder():
         return constants.greb_folder()+'/artificial_clouds'
+
+    @staticmethod
+    def solar_radiation_folder():
+        return constants.greb_folder()+'/artificial_solar_radiation'
 
     @staticmethod
     def cloud_figures_folder():
@@ -315,13 +366,17 @@ class constants:
         return constants.output_folder()+'/control.default'
 
     @staticmethod
-    def shape_for_bin():
-    # 'Shape must be in the form (tdef,ydef,xdef)'
-        return (constants.dt(),constants.dy(),constants.dx())
+    def shape_for_bin(type='cloud'):
+        if type == 'cloud':
+            # 'Shape must be in the form (tdef,ydef,xdef)'
+            return (constants.dt(),constants.dy(),constants.dx())
+        elif type == 'solar':
+            return (constants.dt(),constants.dy(),1)
+        else: raise Exception('type must be either "cloud" or "solar"')
 
     @staticmethod
-    def to_shape_for_bin(data):
-        def_sh = constants.shape_for_bin()
+    def to_shape_for_bin(data,type='cloud'):
+        def_sh = constants.shape_for_bin(type)
         sh=data.shape
         if len(sh) != 3: raise Exception('data must be 3D, in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
         if len(set(sh)) != 3: raise Exception('data shape must be in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
@@ -365,7 +420,7 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     - coord_name = [coord_min, coord_max] --> To apply changes only to that portion of that coordinate;
     - If coord_name = 'time', default format is '%m-%d' (The year is automatically set at 2000)
       (e.g. '03-04' for 4th March).
-      To specify your own formatn (for month and day) use the form: [time_min,time_max,format];
+      To specify your own format (for month and day) use the form: [time_min,time_max,format];
     - If coord_name = 'latitude', the format is [lat_min,lat_max] in N-S degrees (-90 ÷ 90)
       (e.g. [-20,40] is from 20S to 40N);
     - If coord_name = 'longitude', the format is [lon_min,lon_max] in E-W degrees (-180 ÷ 180)
@@ -491,9 +546,110 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     # Write .bin and .ctl files
     vars = {'cloud':data}
     if outpath is None:
-        outpath='/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.ctl'
+        outpath=constants.cloud_folder()+'/cld.artificial.ctl'
     create_bin_ctl(outpath,vars)
 
+def create_solar(time = None, latitude = None, value = 1,
+                  solar_base = None, outpath = None):
+    '''
+    - Create solar radiation input file from scratch, or by modifying an existent
+      solar radiation matrix ("solar_base").
+    - Every coordinate can be specified in the form:
+    - coord_name = [coord_min, coord_max] --> To apply changes only to that portion of that coordinate;
+    - If coord_name = 'time', default format is '%m-%d' (The year is automatically set at 2000)
+      (e.g. '03-04' for 4th March).
+      To specify your own format (for month and day) use the form: [time_min,time_max,format];
+    - If coord_name = 'latitude', the format is [lat_min,lat_max] in N-S degrees (-90 ÷ 90)
+      (e.g. [-20,40] is from 20S to 40N);
+    - "value" can be an integer, float or function to be applied element-wise to the "solar_base"
+      (e.g. "lambda x: x-2.5").
+    '''
+
+    # Define constants
+    def_t=constants.t()
+    def_lat=constants.lat()
+    dt = constants.dt()
+    dy = constants.dy()
+    # Check coordinates and constrain them
+    # TIME
+    if time is not None:
+        t_exc = '"time" must be an int or date_string in the form [time_min,time_max]\n'+\
+              'The date_string must have the format "%m-%d" (e.g. "03-04" for 4th March).\n'+\
+              'To specify your own format use the form: [time_min,time_max,format]'
+        fmt = '%y-%m-%d'
+        if not isinstance(time,list):
+            if (isinstance(time,float) or isinstance(time,int) or isinstance(time,str)):
+                time = [time]
+            else:
+                raise Exception(t_exc)
+        if len(time) == 1:
+            if isinstance(time[0],str):
+                t_min = t_max = to_greb_time('00-'+time[0])
+            else:
+                t_min = t_max = int(time[0])
+        elif len(time) == 2:
+            if isinstance(time[0],str):
+                t_min = to_greb_time('00-'+time[0])
+                t_max = to_greb_time('00-'+time[1])
+            else:
+                t_min = int(time[0])
+                t_max = int(time[1])
+        elif len(time) == 3:
+            if isinstance(time[0],str):
+                t_min = to_greb_time('00-'+time[0],'%y-'+time[2])
+                t_max = to_greb_time('00-'+time[1],'%y-'+time[2])
+            else:
+                raise Exception(t_exc)
+        else:
+            raise Exception(t_exc)
+        ind_t=np.where((def_t>=t_min) & (def_t<=t_max))[0]
+    else:
+        ind_t=np.where((def_t>=def_t.min()) & (def_t<=def_t.max()))[0]
+    # LATITUDE
+    if latitude is not None:
+        lat_exc = '"latitude" must be a number or in the form [lat_min,lat_max]'
+        if (isinstance(latitude,float) or isinstance(latitude,int)):
+            latitude = [latitude]
+        if isinstance(latitude,list):
+            if len(latitude) > 2:
+                raise Exception(lat_exc)
+            else:
+                if np.any(list(map(lambda l: (l > 90 or l < -90),latitude))):
+                        raise Exception('"latitude" must be in the range [-90÷90]')
+                lat_min,lat_max = latitude
+        else:
+            raise Exception(lat_exc)
+        if lat_min < lat_max:
+            ind_lat=np.where((def_lat>=lat_min) & (def_lat<=lat_max))[0]
+        else:
+            ind_lat=np.where((def_lat>=lat_min) | (def_lat<=lat_max))[0]
+    else:
+        ind_lat=np.where((def_lat>=def_lat.min()) & (def_lat<=def_lat.max()))[0]
+    if solar_base is not None:
+        if isinstance(solar_base,str):
+            data=data_from_binary(solar_base)['solar']
+        elif isinstance(solar_base,np.ndarray):
+            data = solar_base
+        else:
+            raise Exception('"solar_base" must be a valid .ctl or .bin file or a numpy.ndarray matrix of the solar radiation data')
+        data = constants.to_shape_for_bin(data,type='solar')
+    else:
+        data = np.zeros((dt,dy,1))
+    # Change values
+    if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
+        data[ind_t[:,None,None],ind_lat[:,None],0] = value
+    elif callable(value):
+        data[ind_t[:,None,None],ind_lat[:,None],0] = value(data[ind_t[:,None,None],ind_lat[:,None],0])
+    else:
+        raise Exception('"value" must be a number, numpy.ndarray or function to apply to the "solar_base" (e.g. "lambda x: x-2.5")')
+    # Correct value below 0
+    data=np.where(data>=0,data,0)
+    # Write .bin and .ctl files
+    vars = {'solar':data}
+    if outpath is None:
+        outpath=constants.solar_radiation_folder()+'/sw.artificial.ctl'
+    create_bin_ctl(outpath,vars)
+    
 def get_art_cloud_filename(sc_filename):
     txt='exp-930.geoeng.'
     sc_filename = rmext(os.path.split(sc_filename)[1])
@@ -656,9 +812,10 @@ def create_bin(path,vars):
     with open(path+'.bin','wb') as f:
         for v in vars: f.write(v)
 
-def create_ctl(path, varnames = ['clouds'], xdef = constants.dx(),
-               ydef = constants.dy(), zdef = 1, tdef = constants.dt()):
+def create_ctl(path, varnames = None, xdef = None,
+               ydef = None, zdef = 1, tdef = None):
     path = rmext(path)
+    if not isinstance(varnames,list): varnames = [varnames]
     nvars = len(varnames)
     name = os.path.split(path)[1]+'.bin'
     with open(path+'.ctl','w+') as f:
@@ -683,10 +840,12 @@ def create_bin_ctl(path,vars):
     l=[v.shape for v in varvals]
     if not ( l.count(l[0]) == len(l) ):
         raise Exception('var1,var2,...,varN must be of the same size')
-    varvals = [constants.to_shape_for_bin(v) for v in varvals]
+    varvals = [constants.to_shape_for_bin(v,type=n) for v,n in zip(varvals,varnames)]
     varvals=[np.float32(v.copy(order='C')) for v in varvals]
+    tdef,ydef,xdef = varvals[0].shape
+
     # WRITE CTL FILE
-    create_ctl(path, varnames = varnames)
+    create_ctl(path, varnames = varnames, xdef=xdef,ydef=ydef,tdef=tdef)
     # WRITE BIN FILE
     create_bin(path,vars = varvals)
 

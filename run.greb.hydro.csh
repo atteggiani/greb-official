@@ -97,7 +97,7 @@ set log_hwind_ext=1 #force horizontal winds with external file (0=no forcing; 1=
 set log_omega_ext=1 #force vertical velocity omega with external file (0=no forcing; 1=forcing)
 
 # length of sensitivity experiment in years
-set YEARS=50
+set YEARS=80
 
 # for EXP = 35 choose here a value between -250 and 900 (with an increment of 25) for the obliquity:
 # => possible range: [-250 (= -25deg),  900 (= +90deg)], todays value 225 (=22.5deg)
@@ -232,7 +232,9 @@ if ( $EXP == 230 ) set FILENAME=exp-${EXP}.forced.climatechange.ensemblemean.${l
 if ( $EXP == 240 ) set FILENAME=exp-${EXP}.forced.elnino.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 241 ) set FILENAME=exp-${EXP}.forced.lanina.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 930 ) set FILENAME=exp-${EXP}.geoeng.${artcldname}
-# set FILENAME = ${FILENAME}.mod
+
+# if ( "$YEARS" != 50 ) set FILENAME=${FILENAME}_${YEARS}yrs
+set FILENAME=${FILENAME}_${YEARS}yrs
 
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin

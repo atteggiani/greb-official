@@ -29,17 +29,12 @@ elif 'annual' in time.split('_'):
 else:
     raise Exception('Time must contain either "monthly" or "annual"')
 
-# dT = t(t_new_r_fname,tt)-t(t_old_r_fname,tt)
-# dCLD = cld(cld_new_r_fname,tt)-cld(cld_old_r_fname,tt)
-# t_new = t(t_new_fname,tt)
-# t_c = t(control_fname,tt)
-
 dT = t(t_new_r_fname,'raw')-t(t_old_r_fname,'raw')
 dCLD = cld(cld_new_r_fname,'monthly')-cld(cld_old_r_fname,'monthly')
 t_new = t(t_new_fname,'raw')
 t_c = t(control_fname,'raw')
 
-ny=25
+ny=1
 dT=dT[-(12*ny):,...].reshape([ny,12,48,96]).mean(axis=0)
 t_new=t_new[-(12*ny):,...].reshape([ny,12,48,96]).mean(axis=0)
 
@@ -60,12 +55,6 @@ new_cloud = dCLD_new+cld_base
 new_cloud=savgol_filter(new_cloud, 29,3,axis = 0,mode='mirror')
 new_cloud=savgol_filter(new_cloud, 55,3,axis = 0,mode='mirror')
 new_cloud=savgol_filter(new_cloud, 61,3,axis = 0,mode='mirror')
-
-# i,j=to_greb_indexes(90,260)
-# a=(new_cloud)[:,i,j]
-# b=cld_base[:,i,j]
-# c = new_cloud_old[:,i,j]
-# plt.figure(figsize=(12,9),dpi=80); plt.plot(b);plt.plot(a);plt.plot(c);plt.ylim([0,1])
 
 new_name = constants.cloud_folder()+'/cld.artificial.iter{}_{}'.format(niter,time)
 create_clouds(value = new_cloud,cloud_base=None, outpath=new_name)

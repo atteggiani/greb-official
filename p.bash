@@ -1,28 +1,31 @@
 #!/bin/bash
-# Total number of iterations
+# run script for geo-engineering scenario experiments with the Globally Resolved Energy Balance (GREB) Model
+# Author: Davide Marchegiani
+PROGNAME=$0
 
-tot_iter="$1"
-t="$2"
-flag="$3" #default is "FIXED", can be set to "NOT_FIXED"
-t_new="$4"
-t_old_r="$5"
+usage() {
+  cat << EOF
+Usage: $PROGNAME [-e <exp_num>] [-y <year_num>] [-o] ...
 
+Possible keys:
+-c <artificial_cloud_file> -> "artificial cloud to be used with exp 930"
+-e <exp_num> -> "experiment number"
+-o -> "save control output"
+-s <SW_decrease> -> "amount of SW to be decreased in exp 931"
+-y <year_num> -> "number of years of simulation"
+EOF
+  exit 1
+}
 
-((${tot_iter:=5}))
-t=${t:='monthly'}
-flag=${flag:='FIXED'}
-if [ "$flag" == "NOT_FIXED" ] || [ "$flag" == "nf" ] || [ "$flag" == "not_fixed" ]
-then
-    t="${t}_nf"
-fi
-wdir="/Users/dmar0022/university/phd/greb-official"
-# Files for 1st iteration
-t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1"}
-t_new_r="$t_new"
-t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2"}
-t_iter="$t_new"
-# Initialize iterations
-echo -e "\nPlotting iterations...\n"
-python ${wdir}/plot_iter.py $t $t_iter
-echo -e "DONE!!\n"
-exit
+while getopts hc:e:os:y: opt; do
+  case $opt in
+    (c) cld_artificial=$OPTARG;;
+    (e) EXP=$OPTARG;;
+    (o) output_control=1;;
+    (s) sw_decr=$OPTARG;;
+    (y) YEARS=$OPTARG;;
+    (*) usage
+  esac
+done
+shift "$((OPTIND - 1))"
+cld_artificial=${cld_artificial:="$1"}

@@ -132,8 +132,13 @@ if ( log_exp .eq. 930 ) then
     open(27, file='cldart', ACCESS='DIRECT', FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
     do n=1,nstep_yr
         read(27,rec=n) cldclim_artificial(:,:,n)
-        ! print*, cldclim_artificial(1,1,n)
     end do
+end if
+
+! Geo-engineering forcing with artificial solar radiation
+if ( log_exp .eq. 931 ) then
+    open(28, file='swart', ACCESS='DIRECT', FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
+    read(28,rec=1) sw_solar_artificial
 end if
 
 ! start greb_model run

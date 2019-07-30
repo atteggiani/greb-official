@@ -206,7 +206,7 @@ module mo_physics
   real, dimension(xdim,ydim,nstep_yr) ::  Tclim, uclim, vclim, omegaclim, omegastdclim, wsclim
   real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim, cldclim_artificial
   real, dimension(xdim,ydim,nstep_yr) ::  TF_correct, qF_correct, ToF_correct, swetclim, dTrad
-  real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr
+  real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr, sw_solar_artificial
   real, dimension(xdim,ydim)          ::  co2_part      = 1.0
   real, dimension(xdim,ydim)          ::  co2_part_scn  = 1.0
 
@@ -641,10 +641,9 @@ subroutine SWradiation(Tsurf, sw, ice_cover)
   if (log_ice  ==    0) a_surf = a_no_ice
 
 ! SW flux
-  a_surf = a_surf
   albedo=a_surf+a_atmos-a_surf*a_atmos
   forall (i=1:xdim)
-     sw(i,:)=0.01*S0_var*SW_solar(:,ityr)*(1-albedo(i,:))
+     sw(i,:)=0.01*S0_var*sw_solar(:,ityr)*(1-albedo(i,:))
   end forall
 
 end subroutine SWradiation
@@ -1267,7 +1266,7 @@ subroutine forcing(it, year, CO2, Tsurf)
   USE mo_numerics,    ONLY: xdim, ydim, ndays_yr, ndt_days, nstep_yr
   USE mo_physics,     ONLY: log_exp, sw_solar, sw_solar_ctrl, sw_solar_scnr,     &
 &                           co2_part, co2_part_scn, z_topo, ityr, Tclim, cldclim,         &
-&                           cldclim_artificial
+&                           cldclim_artificial, sw_solar_artificial
   USE mo_diagnostics,  ONLY: icmn_ctrl
 
   ! IMPLICIT NONE
@@ -1374,6 +1373,13 @@ subroutine forcing(it, year, CO2, Tsurf)
       cldclim = cldclim_artificial
       CO2 = 2*340.
   end if
+
+! Geo-engineering experiment with artificial SW radiation
+  if( log_exp .eq. 931 ) then
+      sw_solar = sw_solar_artificial
+      CO2 = 2*340.
+  end if
+
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++
