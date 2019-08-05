@@ -8,6 +8,7 @@ usage() {
 Usage: $PROGNAME [-e <exp_num>] [-y <year_num>] [-o] ...
 
 Possible keys:
+-a -> perform the analysis on the output with the "plot_contours.py" script
 -c <artificial_cloud_file> -> "artificial cloud to be used with exp 930"
 -e <exp_num> -> "experiment number"
 -o -> "save control output"
@@ -17,8 +18,9 @@ EOF
   exit 1
 }
 
-while getopts hc:e:os:y: opt; do
+while getopts hac:e:os:y: opt; do
   case $opt in
+    (a) analyze=1;;
     (c) cld_artificial=$OPTARG
         EXP=930;;
     (e) EXP=$OPTARG;;
@@ -121,10 +123,8 @@ EOF
 if [ ! -d ../output ]; then mkdir ../output; fi
 
 # create filename
-FILENAME=exp-${EXP}.geoeng.${name}
-if [ "$YEARS" != 50 ]; then
-    FILENAME=${FILENAME}_${YEARS}yrs
-fi
+FILENAME=exp-${EXP}.geoeng.${name}_${YEARS}yrs
+
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin
 
@@ -198,6 +198,8 @@ endvars
 EOF
 fi
 
-# Greb model output Analysys and plots
-# python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default $cld_artificial
+if [ $analyze -eq 1 ]; then
+    # Greb model output Analysys and plots
+    python ../plot_contours.py ../output/scenario.${FILENAME}
+fi
 exit 0

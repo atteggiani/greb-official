@@ -649,11 +649,24 @@ def create_solar(time = None, latitude = None, value = 1,
     if outpath is None:
         outpath=constants.solar_radiation_folder()+'/sw.artificial.ctl'
     create_bin_ctl(outpath,vars)
-    
+
+def get_art_solar_filename(sc_filename):
+    txt='exp-931.geoeng.'
+    sc_filename = rmext(os.path.split(sc_filename)[1])
+    if txt in sc_filename:
+        sc_filename = '_'.join(sc_filename.split('_')[:-1])
+        art_solar_name = sc_filename[sc_filename.index(txt)+len(txt):]
+        return os.path.join(constants.solar_radiation_folder(), art_solar_name)
+    elif 'exp-20.2xCO2' in sc_filename:
+        return constants.solar_radiation_def_file()
+    else:
+       raise Exception('The scenario filename must contain "exp-931.geoeng"')
+
 def get_art_cloud_filename(sc_filename):
     txt='exp-930.geoeng.'
     sc_filename = rmext(os.path.split(sc_filename)[1])
     if txt in sc_filename:
+        sc_filename = '_'.join(sc_filename.split('_')[:-1])
         art_cloud_name = sc_filename[sc_filename.index(txt)+len(txt):]
         return os.path.join(constants.cloud_folder(), art_cloud_name)
     elif 'exp-20.2xCO2' in sc_filename:
@@ -661,16 +674,19 @@ def get_art_cloud_filename(sc_filename):
     else:
        raise Exception('The scenario filename must contain "exp-930.geoeng"')
 
-def get_scenario_filename(cld_filename):
-    txt='cld.artificial'
-    cld_filename = rmext(cld_filename)
-    cld_filename_ = os.path.split(cld_filename)[1]
-    if txt in cld_filename_:
-        sc_name = 'scenario.exp-930.geoeng.'+cld_filename_
-    elif cld_filename == constants.cloud_def_file():
-        sc_name = 'scenario.exp-20.2xCO2'
+def get_scenario_filename(filename,years=50):
+    txt1='cld.artificial'
+    txt2='sw.artificial'
+    filename = rmext(filename)
+    filename_ = os.path.split(filename)[1]
+    if txt1 in filename_:
+        sc_name = 'scenario.exp-930.geoeng.'+filename_+'_{}yrs'.format(years)
+    elif txt2 in filename_:
+        sc_name = 'scenario.exp-931.geoeng.'+filename_+'_{}yrs'.format(years)
+    elif (filename == constants.cloud_def_file()) or (filename == constants.solar_radiation_def_file()):
+        sc_name = 'scenario.exp-20.2xCO2'+'_{}yrs'.format(years)
     else:
-       raise Exception('The artificial cloud filename must contain "cld.artificial"')
+       raise Exception('The forcing file must contain either "cld.artificial" or "sw.artificial"')
     return os.path.join(constants.output_folder(),sc_name)
 
 def input_(def_input,argv=1):
@@ -1123,8 +1139,12 @@ class plot_param:
              statistics=True):
         # plt.figure(figsize=(12, 8))
         plt.axes(projection=projection) if ax is None else plt.axes(ax)
-        iplt.contourf(self.get_cube(), levels = self.get_cmaplev(), cmap = self.get_cmap(),
-                      extend=self.get_cbextmode())
+        try:
+            iplt.contourf(self.get_cube(), levels = self.get_cmaplev(), cmap = self.get_cmap(),
+                          extend=self.get_cbextmode())
+        except IllegalArgumentException:
+            print('{} could not be plotted due to a contour plot error\n'.format(self.get_varname()))
+            return
         plt.gca().add_feature(cfeature.COASTLINE,**coast_param)
         if self.get_defname() == 'tocean':
             plt.gca().add_feature(cfeature.NaturalEarthFeature('physical',

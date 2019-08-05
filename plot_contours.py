@@ -3,16 +3,19 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
 # Read scenario and base file
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominputX1.1'
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.sw.artificial.frominput-7.5_80yrs.ctl'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
-# filename_art_cloud = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.frominputX1.1'
+# filename_art_forcing = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.frominputX1.1'
 
 filename = input_(filename,1)
 filename_base = input_(filename_base,2)
 
-# Read artificial cloud (if any)
-filename_art_cloud=get_art_cloud_filename(filename)
-if filename_art_cloud: filename_art_cloud=input_(filename_art_cloud,3)
+# Read artificial forcing (if any)
+try: filename_art_forcing = get_art_cloud_filename(filename)
+except:
+    try: filename_art_forcing = get_art_solar_filename(filename)
+    except: filename_art_forcing = None
+if filename_art_forcing: filename_art_forcing=input_(filename_art_forcing,3)
 
 name = os.path.split(filename)[1]
 print('\nSCENARIO_FILE: ' + name)
@@ -22,9 +25,9 @@ name_base = os.path.split(filename_base)[1]
 print('BASE_FILE: ' + name_base)
 outfile_base = filename_base + '.nc'
 
-if filename_art_cloud:
-    name_art_cloud = os.path.split(filename_art_cloud)[1]
-    print('ARTIFICIAL_CLOUD: ' + name_art_cloud)
+if filename_art_forcing:
+    name_art_forcing = os.path.split(filename_art_forcing)[1]
+    print('ARTIFICIAL_FORCING: ' + name_art_forcing)
 
 # Setting figures output directories
 outdir=os.path.join('/Users/dmar0022/university/phd/greb-official/figures',name)
@@ -58,12 +61,14 @@ for var in data:
 #  Plotting anomalies contours
 print('Plotting anomalies contours...')
 for var in data:
+    # print('{}'.format(var.var_name))
     # annual mean
     plt.figure()
     plot_param.from_cube(var).to_annual_mean().to_anomalies(data_base).assign_var().plot(outpath=outdir_diff)
     # sesonal cycle
     plt.figure()
     plot_param.from_cube(var).to_seasonal_cycle().to_anomalies(data_base).assign_var().plot(outpath=outdir_diff)
+
 # #  Plotting variation contours
 # print('Plotting variation contours...')
 # for var in data:
@@ -74,10 +79,10 @@ for var in data:
 #     plt.figure()
 #     plot_param.from_cube(var).to_seasonal_cycle().to_variation(data_base).assign_var().plot(outpath=outdir_variation)
 # Plot artificial clouds
-# if filename_art_cloud:
+# if filename_art_forcing:
 #     print('Plotting artificial cloud "'+name_art_cloud+'"...')
-#     plot_clouds(filename_art_cloud,outdir_diff)
-#     plot_clouds(filename_art_cloud)
+#     plot_clouds(filename_art_forcing,outdir_diff)
+#     plot_clouds(filename_art_forcing)
 # # Delete netCDF files
 print('Deleting netCDF files...')
 os.remove(outfile)
