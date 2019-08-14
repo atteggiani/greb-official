@@ -49,15 +49,16 @@ bin2netCDF(filename_base)
 data = parsevar(iris.load(outfile))
 data_base = parsevar(iris.load(outfile_base))
 
-#  Plotting scenario run absolute countours
-print('Plotting scenario contours...')
-for var in data:
-    # annual mean
-    plt.figure()
-    plot_param.from_cube(var).to_annual_mean().assign_var().plot(outpath=outdir_absolute)
-    # sesonal cycle
-    plt.figure()
-    plot_param.from_cube(var).to_seasonal_cycle().assign_var().plot(outpath=outdir_absolute)
+# #  Plotting scenario run absolute countours
+# print('Plotting scenario contours...')
+# for var in data:
+#     # annual mean
+#     plt.figure()
+#     plot_param.from_cube(var).to_annual_mean().assign_var().plot(outpath=outdir_absolute)
+#     # sesonal cycle
+#     plt.figure()
+#     plot_param.from_cube(var).to_seasonal_cycle().assign_var().plot(outpath=outdir_absolute)
+
 #  Plotting anomalies contours
 print('Plotting anomalies contours...')
 for var in data:
@@ -87,4 +88,4 @@ for var in data:
 print('Deleting netCDF files...')
 os.remove(outfile)
 os.remove(outfile_base)
-print('Done!!!')
+print('Done!!!\n')

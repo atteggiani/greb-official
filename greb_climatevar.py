@@ -366,6 +366,14 @@ class constants:
         return constants.output_folder()+'/control.default'
 
     @staticmethod
+    def to_greb_grid(input_cube, target_grid_cube, scheme='linear'):
+        if scheme == 'linear': scheme = iris.analysis.Linear()
+        elif scheme == 'nearest': scheme = iris.analysis.Nearest()
+        elif scheme == 'areaweighted': scheme = iris.analysis.AreaWeighted()
+        else: raise Exception('scheme must be either "linear", "nearest" or "areaweighted".')
+        return input_cube.regrid(target_grid_cube,scheme)
+
+    @staticmethod
     def shape_for_bin(type='cloud'):
         if type == 'cloud':
             # 'Shape must be in the form (tdef,ydef,xdef)'
@@ -1142,7 +1150,7 @@ class plot_param:
         try:
             iplt.contourf(self.get_cube(), levels = self.get_cmaplev(), cmap = self.get_cmap(),
                           extend=self.get_cbextmode())
-        except IllegalArgumentException:
+        except:
             print('{} could not be plotted due to a contour plot error\n'.format(self.get_varname()))
             return
         plt.gca().add_feature(cfeature.COASTLINE,**coast_param)
