@@ -14,7 +14,11 @@ def mean_70s(data):
     return data[70:80,...].mean(axis=0)
 
 def to_celsius(t):
-    return t-273.15
+    if isinstance(t,iris.cube.Cube): metadata = t.metadata
+    tc = t-273.15
+    if isinstance(t,iris.cube.Cube): tc.metadata = metadata
+    return tc
+
 
 def plot_tsurf(tsurf,labels):
     from matplotlib.ticker import AutoMinorLocator
@@ -46,7 +50,7 @@ def plot_precip(precip,labels):
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
     plt.grid(which='both',linestyle='--')
 
-def plot_std(tsurf,precip,areaspec,filespec):
+def scatter_plot(tsurf,precip,areaspec,filespec):
     from matplotlib.lines import Line2D
     if not isinstance(areaspec,list): areaspec = [areaspec]
     cmap=plt.get_cmap('Spectral_r')
@@ -59,8 +63,8 @@ def plot_std(tsurf,precip,areaspec,filespec):
         for ts,p,c in zip(tsurf[area],precip[area],colors):
             plt.scatter(ts,p,color=c, marker = markers[area], s = sz)
 
-    circle=plt.Circle((0, 0), 1, color='k', fill=False)
-    plt.gca().add_artist(circle)
+    # circle=plt.Circle((0, 0), 1, color='k', fill=False)
+    # plt.gca().add_artist(circle)
 
     legend_elements = [Line2D([0],[0], color=c, lw=3, label=fs) for fs,c in zip(filespec,colors)]+\
                       [Line2D([0],[0], color='w', marker = m, markeredgecolor = 'k', \
@@ -71,31 +75,23 @@ def plot_std(tsurf,precip,areaspec,filespec):
                                         facecolor = None, edgecolor = 'black', \
                                                       visible=0,label = 'India')
 
-    plt.xticks(np.arange(-8,8+1,1))
-    plt.ylim([-2,2])
+    plt.xticks(np.arange(-2,2+1,0.5))
+    plt.yticks(np.arange(-0.75,0.75+0.25,0.25))
     plt.legend(handles=legend_elements,loc='upper right',
                bbox_to_anchor=(-0.1,1.1),fontsize = 'xx-small')
-    plt.xlabel('Temperature',)
-    plt.ylabel('Precipitation',rotation=0)
+    plt.xlabel('Temperature [°C]',)
+    plt.ylabel('Precipitation [mm/d]',rotation=0)
     plt.gca().spines['left'].set_position(('data', 0))
     plt.gca().spines['bottom'].set_position(('data', 0))
     plt.gca().spines['top'].set_visible(False)
     plt.gca().spines['right'].set_visible(False)
-    plt.gca().xaxis.set_label_coords(0.2, 0.4)
-    plt.gca().yaxis.set_label_coords(0.5, 1.02)
+    plt.gca().xaxis.set_label_coords(0.15, 0.57)
+    plt.gca().yaxis.set_label_coords(0.4, 1.03)
 
 dsk='/Users/dmar0022/Desktop/'
 file_control = constants.control_def_file()
 
-# load files from HadCM3 model
-file_hadCM3_control_ts = r'/Users/dmar0022/university/phd/data/HadCM3/HADCM3_20C3M_1_G_tas_1990_1999.nc'
-file_hadCM3_noSRM_ts = r'/Users/dmar0022/university/phd/data/HadCM3/HADCM3_SRA1B_1_G_tas_2000_2080.nc'
-file_hadCM3_control_pr = r'/Users/dmar0022/university/phd/data/HadCM3/HADCM3_20C3M_1_G_pr_1990_1999.nc'
-file_hadCM3_noSRM_pr = r'/Users/dmar0022/university/phd/data/HadCM3/HADCM3_SRA1B_1_G_pr_2000_2080.nc'
-files_hadCM3_ts=[file_hadCM3_control_ts,file_hadCM3_noSRM_ts]
-files_hadCM3_pr=[file_hadCM3_control_pr,file_hadCM3_noSRM_pr]
-
-filespec=np.arange(0.974,0.98,0.0002)
+filespec=np.arange(0.978,0.985+0.0002,0.0002)
 files = [constants.output_folder()+'/scenario.exp-931.geoeng.sw.artificial.frominput_x{:g}_80yrs'.format(f) for f in filespec]
 files.insert(0,constants.output_folder()+'/scenario.exp-20.2xCO2_80yrs.bin')
 namespec=['NO-SRM']+['{:g}'.format(f) for f in filespec[1:]]
@@ -108,40 +104,40 @@ areaspec=['india','china','australia']
 # 'TSURF'
 ts_ctl = cube_from_binary(file_control)
 ts_ctl = to_celsius(ts_ctl[[v.var_name for v in ts_ctl].index('tsurf')])
-ts_hadCM3 = [to_celsius(iris.load_cube(f)) for f in files_hadCM3_ts]
-ts_hadCM3 = [constants.to_greb_grid(t,ts_ctl,'linear') for t in ts_hadCM3]
+ts_ctl_gm = global_mean(ts_ctl).data.data.mean()
 
-ts_ctl = ts_ctl.data.data
-ts = [to_celsius(data_from_binary(f)['tsurf']).reshape(80,12,48,96) for f in files]
-ts_hadCM3 = [t.data.data for t in ts_hadCM3]
-ts_hadCM3[0] = ts_hadCM3[0].mean(axis=0)
-ts_hadCM3[1] = ts_hadCM3[1].reshape(81,12,48,96)[1:,...]
+ind = [v.var_name for v in cube_from_binary(files[0])].index('tsurf')
+ts = [to_celsius(cube_from_binary(f)[ind]) for f in files]
+ts_gm = [np.insert(global_mean(d).data.data.reshape(80,12).mean(axis=-1),0,ts_ctl_gm) for d in ts]
 
-ts_hadCM3[1].reshape(80,-1).mean(axis=-1)
-ts_hadCM3[1].reshape(81,-1).mean(axis=-1)
+ts_high_srm=sum(ts[1:6])/5
+ts_low_srm=sum(ts[-6:-1])/5
+ind_best = np.argmin(np.abs([np.mean(t) for t in (ts_gm[1:]-ts_ctl_gm)]))
+alpha_best = round(filespec[ind_best],4)
+ts_best_srm = ts[ind]
 
-ts_ctl_gm = ts_ctl.mean()
-ts_gm = [np.insert(x.reshape(x.shape[0],-1).mean(axis=-1),0,ts_ctl_gm) for x in ts]
 
-ts_base_std = (ts_hadCM3[1]-ts_hadCM3[0]).std(axis=1)
-ts_anom_jja_stdunit = [(x-ts_ctl)[:,5:8,...].mean(axis=1)/ts_base_std for x in ts[1:]]
+_ts_ctl = ts_ctl.data.data
+_ts = [d.data.data.reshape(-1,12,48,96) for d in ts[1:]]
 
-ts_anom_jja_stdunit_20s = [mean_20s(x) for x in ts_anom_jja_stdunit]
-ts_anom_jja_stdunit_70s = [mean_70s(x) for x in ts_anom_jja_stdunit]
+ts_anom_jja = [(x-_ts_ctl)[:,5:8,...].mean(axis=1) for x in _ts]
+
+ts_anom_jja_20s = [mean_20s(x) for x in ts_anom_jja]
+ts_anom_jja_70s = [mean_70s(x) for x in ts_anom_jja]
 
 # India
-ts_anom_jja_stdunit_20s_india = [to_regional_mean(x,*india) for x in ts_anom_jja_stdunit_20s]
-ts_anom_jja_stdunit_70s_india = [to_regional_mean(x,*india) for x in ts_anom_jja_stdunit_70s]
+ts_anom_jja_20s_india = [to_regional_mean(x,*india) for x in ts_anom_jja_20s]
+ts_anom_jja_70s_india = [to_regional_mean(x,*india) for x in ts_anom_jja_70s]
 
 # China
-ts_anom_jja_stdunit_20s_china = [to_regional_mean(x,*china) for x in ts_anom_jja_stdunit_20s]
-ts_anom_jja_stdunit_70s_china = [to_regional_mean(x,*china) for x in ts_anom_jja_stdunit_70s]
+ts_anom_jja_20s_china = [to_regional_mean(x,*china) for x in ts_anom_jja_20s]
+ts_anom_jja_70s_china = [to_regional_mean(x,*china) for x in ts_anom_jja_70s]
 
 # Australia
-ts_anom_jja_stdunit_20s_aus = [to_regional_mean(x,*aus) for x in ts_anom_jja_stdunit_20s]
-ts_anom_jja_stdunit_70s_aus = [to_regional_mean(x,*aus) for x in ts_anom_jja_stdunit_70s]
+ts_anom_jja_20s_aus = [to_regional_mean(x,*aus) for x in ts_anom_jja_20s]
+ts_anom_jja_70s_aus = [to_regional_mean(x,*aus) for x in ts_anom_jja_70s]
 
-ts_anom_jja_stdunit_70s_all = [ts_anom_jja_stdunit_70s_india,ts_anom_jja_stdunit_70s_china,ts_anom_jja_stdunit_70s_aus]
+ts_anom_jja_70s_all = [ts_anom_jja_70s_india,ts_anom_jja_70s_china,ts_anom_jja_70s_aus]
 
 # //==========================================================================//
 # //==========================================================================//
@@ -150,54 +146,89 @@ ts_anom_jja_stdunit_70s_all = [ts_anom_jja_stdunit_70s_india,ts_anom_jja_stdunit
 # 'PRECIP'
 p_ctl = cube_from_binary(file_control)
 p_ctl = p_ctl[[v.var_name for v in p_ctl].index('precip')]
-p_hadCM3 = [iris.load_cube(f)*-86400 for f in files_hadCM3_pr]
-p_hadCM3 = [constants.to_greb_grid(t,p_ctl) for t in p_hadCM3]
+p_ctl_gm = global_mean(p_ctl).data.data.mean()
 
-p_ctl = p_ctl.data.data
-p = [(data_from_binary(f)['precip']).reshape(80,12,48,96)*-86400 for f in files]
-p_hadCM3 = [p.data.data for p in p_hadCM3]
-p_hadCM3[0] = p_hadCM3[0].mean(axis=0)
-p_hadCM3[1] = p_hadCM3[1].reshape(81,12,48,96)[1:,...]
+ind = [v.var_name for v in cube_from_binary(files[0])].index('precip')
+p = [cube_from_binary(f)[ind] for f in files]
+p_gm = [np.insert(global_mean(d).data.data.reshape(80,12).mean(axis=-1),0,p_ctl_gm) for d in p]
 
-p_ctl_gm = p_ctl.mean()
-p_gm = [np.insert(x.reshape(x.shape[0],-1).mean(axis=-1),0,p_ctl_gm) for x in p]
+p_high_srm=sum(p[1:6])/5
+p_low_srm=sum(p[-6:-1])/5
+p_best_srm = p[ind_best]
 
-p_base_std=(p_hadCM3[1]-p_hadCM3[0]).std(axis=1)
-p_anom_jja_stdunit = [(x-p_ctl)[:,5:8,...].mean(axis=1)/p_base_std for x in p[1:]]
+_p_ctl = p_ctl.data.data
+_p = [d.data.data.reshape(-1,12,48,96) for d in p[1:]]
 
-p_anom_jja_stdunit_20s = [mean_20s(x) for x in p_anom_jja_stdunit]
-p_anom_jja_stdunit_70s = [mean_70s(x) for x in p_anom_jja_stdunit]
+p_anom_jja = [(x-_p_ctl)[:,5:8,...].mean(axis=1) for x in _p]
+
+p_anom_jja_20s = [mean_20s(x) for x in p_anom_jja]
+p_anom_jja_70s = [mean_70s(x) for x in p_anom_jja]
 
 # India
-p_anom_jja_stdunit_20s_india = [to_regional_mean(x,*india) for x in p_anom_jja_stdunit_20s]
-p_anom_jja_stdunit_70s_india = [to_regional_mean(x,*india) for x in p_anom_jja_stdunit_70s]
+p_anom_jja_20s_india = [to_regional_mean(x,*india) for x in p_anom_jja_20s]
+p_anom_jja_70s_india = [to_regional_mean(x,*india) for x in p_anom_jja_70s]
 
 # China
-p_anom_jja_stdunit_20s_china = [to_regional_mean(x,*china) for x in p_anom_jja_stdunit_20s]
-p_anom_jja_stdunit_70s_china = [to_regional_mean(x,*china) for x in p_anom_jja_stdunit_70s]
+p_anom_jja_20s_china = [to_regional_mean(x,*china) for x in p_anom_jja_20s]
+p_anom_jja_70s_china = [to_regional_mean(x,*china) for x in p_anom_jja_70s]
 
 # Australia
-p_anom_jja_stdunit_20s_aus = [to_regional_mean(x,*aus) for x in p_anom_jja_stdunit_20s]
-p_anom_jja_stdunit_70s_aus = [to_regional_mean(x,*aus) for x in p_anom_jja_stdunit_70s]
+p_anom_jja_20s_aus = [to_regional_mean(x,*aus) for x in p_anom_jja_20s]
+p_anom_jja_70s_aus = [to_regional_mean(x,*aus) for x in p_anom_jja_70s]
 
-p_anom_jja_stdunit_70s_all = [p_anom_jja_stdunit_70s_india,p_anom_jja_stdunit_70s_china,p_anom_jja_stdunit_70s_aus]
+p_anom_jja_70s_all = [p_anom_jja_70s_india,p_anom_jja_70s_china,p_anom_jja_70s_aus]
 # //==========================================================================//
 # //==========================================================================//
 # //==========================================================================//
 
-#PLOT
+#PLOT TSURF
 plot_tsurf(ts_gm,namespec)
-plt.savefig(dsk+'tsurf1.png', bbox_inches='tight',dpi=400)
-
+plt.savefig(dsk+'tsurf.png', bbox_inches='tight',dpi=400)
+#PLOT PRECIP
 plot_precip(p_gm,namespec)
 plt.savefig(dsk+'precip.png', bbox_inches='tight',dpi=400)
-
-plot_std(ts_anom_jja_stdunit_70s_all,p_anom_jja_stdunit_70s_all,
+#SCATTER PLOT TSURF/PRECIP
+scatter_plot(ts_anom_jja_70s_all,p_anom_jja_70s_all,
          areaspec,namespec[1:])
 plt.savefig(dsk+'std.png', bbox_inches='tight',dpi=300)
 
-plot_std(ts_anom_jja_stdunit_70s_all,p_anom_jja_stdunit_70s_all,
-         areaspec,namespec[1:])
-plt.xlim(-1.2,1.2)
-plt.ylim(-1,1)
-plt.savefig(dsk+'std_zoom.png', bbox_inches='tight',dpi=300)
+#PLOT MAPS LOW SRM
+lt=plot_param.from_cube(ts_low_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
+                       cbticks=np.arange(-2,2+0.5,0.5), tit='Low SRM tsurf anomalies',
+                       varname='ts_low_srm')
+ts_ctl.var_name = ts_low_srm.var_name
+lt.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=dsk)
+
+lp=plot_param.from_cube(p_low_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
+                       cbticks=np.arange(-1,1+0.2,0.2), tit='Low SRM precip anomalies',
+                       varname='p_low_srm')
+p_ctl.var_name = p_low_srm.var_name
+lp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=dsk)
+
+#PLOT MAPS HIGH SRM
+ht=plot_param.from_cube(ts_high_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
+                       cbticks=np.arange(-2,2+0.5,0.5), tit='High SRM tsurf anomalies',
+                       varname='ts_high_srm')
+ts_ctl.var_name = ts_high_srm.var_name
+ht.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=dsk)
+
+hp=plot_param.from_cube(p_high_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
+                       cbticks=np.arange(-1,1+0.2,0.2), tit='High SRM precip anomalies',
+                       varname='p_high_srm')
+p_ctl.var_name = p_high_srm.var_name
+hp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=dsk)
+
+#PLOT MAPS BEST SRM
+bt=plot_param.from_cube(ts_best_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
+                       cbticks=np.arange(-2,2+0.5,0.5),
+                       tit='Best SRM tsurf anomalies - alpha = {:g}'.format(alpha_best),
+                       varname='ts_best_srm')
+ts_ctl.var_name = ts_best_srm.var_name
+bt.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=dsk)
+
+bp=plot_param.from_cube(p_best_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
+                       cbticks=np.arange(-1,1+0.2,0.2),
+                       tit='Best SRM precip anomalies - alpha = {:g}'.format(alpha_best),
+                       varname='p_best_srm')
+p_ctl.var_name = p_best_srm.var_name
+bp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=dsk)

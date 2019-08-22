@@ -34,7 +34,7 @@ def cube_from_data(data, var_name = None, units = None, time = None, latitude=No
         dim_coords_and_dims = coords_and_dims)
     return def_cube
 
-def plot_clouds_and_tsurf(*cloudfiles, coords = None, labels = None):
+def plot_clouds_and_tsurf(*cloudfiles, years=50, coords = None, labels = None):
     import matplotlib.ticker as ticker
     def get_tsurf(*fnames):
         mdays=np.array([31,28,31,30,31,30,31,31,30,31,30,31])
@@ -52,7 +52,7 @@ def plot_clouds_and_tsurf(*cloudfiles, coords = None, labels = None):
 
     cloud = [data_from_binary(f)['cloud'] for f in cloudfiles]
     cloud_ctr = data_from_binary(constants.cloud_def_file())['cloud']
-    tfiles = [get_scenario_filename(f) for f in cloudfiles]
+    tfiles = [get_scenario_filename(f,years=years) for f in cloudfiles]
     tsurf = get_tsurf(*tfiles)
     tsurf_ctr = get_tsurf(constants.control_def_file())
 
@@ -662,7 +662,8 @@ def get_art_solar_filename(sc_filename):
     txt='exp-931.geoeng.'
     sc_filename = rmext(os.path.split(sc_filename)[1])
     if txt in sc_filename:
-        sc_filename = '_'.join(sc_filename.split('_')[:-1])
+        if 'yrs' in sc_filename.split('_')[-1]:
+            sc_filename = '_'.join(sc_filename.split('_')[:-1])
         art_solar_name = sc_filename[sc_filename.index(txt)+len(txt):]
         return os.path.join(constants.solar_radiation_folder(), art_solar_name)
     elif 'exp-20.2xCO2' in sc_filename:
@@ -674,7 +675,8 @@ def get_art_cloud_filename(sc_filename):
     txt='exp-930.geoeng.'
     sc_filename = rmext(os.path.split(sc_filename)[1])
     if txt in sc_filename:
-        sc_filename = '_'.join(sc_filename.split('_')[:-1])
+        if 'yrs' in sc_filename.split('_')[-1]:
+            sc_filename = '_'.join(sc_filename.split('_')[:-1])
         art_cloud_name = sc_filename[sc_filename.index(txt)+len(txt):]
         return os.path.join(constants.cloud_folder(), art_cloud_name)
     elif 'exp-20.2xCO2' in sc_filename:
@@ -904,14 +906,9 @@ def annual_mean(cubes):
     if not isinstance(cubes,list):
         cubes = [cubes]
         fl=True
-    # get var names
-    varnames=[var.var_name for var in cubes]
     # compute annual mean
     amean=[iris.util.squeeze(var.collapsed('time',iris.analysis.MEAN)) \
                                                             for var in cubes]
-    # set var names
-    for var,name in zip(amean,varnames):
-        var.var_name = name+'.amean'
     return amean[0] if fl else amean
 
 def seasonal_cycle(cubes):
@@ -920,8 +917,7 @@ def seasonal_cycle(cubes):
     if not isinstance(cubes,list):
         cubes = [cubes]
         fl=True
-    # get var names
-    varnames=[var.var_name for var in cubes]
+    metadata = [cube.metadata for cube in cubes]
     # add seasons
     [iris.coord_categorisation.add_season(var, 'time', name='seasons',
      seasons=('djf', 'mam', 'jja', 'son')) for var in cubes if \
@@ -932,9 +928,8 @@ def seasonal_cycle(cubes):
     djf = [var.extract(iris.Constraint(seasons='djf')) for var in seasonmean]
     jja = [var.extract(iris.Constraint(seasons='jja')) for var in seasonmean]
     cycle = [(var1-var2)/2 for var1,var2 in zip(djf,jja)]
-    # set var name
-    for var,name in zip(cycle,varnames):
-        var.var_name = name+'.seascyc'
+    for c,m in zip(cycle,metadata):
+        c.metadata =  m
     return cycle[0] if fl else cycle
 
 def anomalies(cubes,cubes_base):
@@ -952,7 +947,7 @@ def anomalies(cubes,cubes_base):
         if var in varnames_base:
             ind = varnames_base.index(var)
             d = cubes[i]-cubes_base[ind]
-            d.var_name = cubes[i].var_name
+            d.metadata = cubes[i].metadata
             diff.append(d)
     return diff[0] if fl else diff
 
@@ -1046,6 +1041,30 @@ def parsevar(cubes):
         ind = varnames.index(id)
         cubes[ind].units=''
     return cubes[0] if fl else cubes
+
+def global_mean(data):
+    if not isinstance(data,iris.cube.Cube): raise Exception('data must an iris.cube.Cube object')
+    coords=[d.standard_name for d in data.dim_coords]
+    shp=list(data.data.shape)
+    has_lat = ('latitude' in coords)
+    has_lon = ('longitude' in coords)
+    if has_lat:
+        weights=np.cos(np.deg2rad(data.coord('latitude').points))
+        indla =  coords.index('latitude')
+        nones=[None for _ in shp]
+        nones[indla]=...
+        shp[indla]=1
+        weights=np.tile(weights[nones], shp)
+        if has_lon:
+            gmean = iris.util.squeeze(data.collapsed(('latitude','longitude'),iris.analysis.MEAN,weights=weights))
+        else:
+            gmean = iris.util.squeeze(data.collapsed('latitude',iris.analysis.MEAN,weights=weights))
+    else:
+        if has_lon:
+            gmean = iris.util.squeeze(data.collapsed('longitude',iris.analysis.MEAN))
+        else:
+            gmean = data
+    return gmean
 
 class plot_param:
     ext = 'png'
@@ -1161,9 +1180,10 @@ class plot_param:
                      label=self.get_units(), ticks=self.get_cbticks(),**colorbar_param)
         plt.title(self.get_tit(),**title_param)
         if statistics:
-            txt = ('gmean = {:.3f}'+'\n'+\
-                  'std = {:.3f}'+'\n'+\
-                  'rms = {:.3f}').format(self.gmean(),self.std(),self.rms())
+            txt = ('gmean = {:.3f}'+'\n'+'rms = {:.3f}').format(self.gmean(),self.rms())
+            # txt = ('gmean = {:.3f}'+'\n'+\
+            #       'std = {:.3f}'+'\n'+\
+            #       'rms = {:.3f}').format(self.gmean(),self.std(),self.rms())
             plt.text(1.05,1,txt,verticalalignment='top',horizontalalignment='right',
                      transform=plt.gca().transAxes,fontsize=6)
         if outpath is not None:
@@ -1224,9 +1244,10 @@ class plot_param:
         cube = self.get_cube()
         newcube = annual_mean(cube)
         self.set_cube(newcube)
-        self.set_varname(newcube.var_name)
+        if self.varname is None: self.varname = 'unknown'
+        self.set_varname(self.varname+'.amean')
         if tit is None:
-            self.set_tit(self.get_varname()+'.amean')
+            self.set_tit(self.get_varname())
         self.add_flags('amean')
         return self
 
@@ -1235,9 +1256,10 @@ class plot_param:
         cube = self.get_cube()
         newcube = seasonal_cycle(cube)
         self.set_cube(newcube)
-        self.set_varname(newcube.var_name)
+        if self.varname is None: self.varname = 'unknown'
+        self.set_varname(self.varname+'.seascyc')
         if tit is None:
-            self.set_tit(self.get_varname()+'.seascyc')
+            self.set_tit(self.get_varname())
         self.add_flags('seascyc')
         return self
 
@@ -1253,6 +1275,7 @@ class plot_param:
         self.set_cube(newcube)
         self.set_varname(varname)
         self.add_flags('anom')
+
         return self
 
     def to_variation(self,cube_base,func='weighted'):
@@ -1270,13 +1293,10 @@ class plot_param:
         return self
 
     def gmean(self):
-        return self.get_cube().data.mean()
-
-    def std(self):
-        return self.get_cube().data.std()
+        return (global_mean(self.get_cube())).data
 
     def rms(self):
-        return np.sqrt(((self.get_cube().data)**2).mean())
+        return np.sqrt((global_mean(self.get_cube()**2)).data)
 
 
 # ====================================================================

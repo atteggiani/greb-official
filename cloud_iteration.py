@@ -5,7 +5,7 @@ from scipy.signal import savgol_filter
 
 # define files
 control_fname = constants.control_def_file()
-t_new_init_fname = constants.output_folder()+'/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1'
+t_new_init_fname = constants.output_folder()+'/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs'
 t_old_init_fname = constants.output_folder()+'/scenario.exp-20.2xCO2'
 
 a=iter(np.arange(1,100))
@@ -34,7 +34,7 @@ dCLD = cld(cld_new_r_fname,'monthly')-cld(cld_old_r_fname,'monthly')
 t_new = t(t_new_fname,'raw')
 t_c = t(control_fname,'raw')
 
-ny=1
+ny=5
 dT=dT[-(12*ny):,...].reshape([ny,12,48,96]).mean(axis=0)
 t_new=t_new[-(12*ny):,...].reshape([ny,12,48,96]).mean(axis=0)
 

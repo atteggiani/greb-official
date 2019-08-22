@@ -20,10 +20,10 @@ EOF
 
 while getopts hac:e:os:y: opt; do
   case $opt in
+    (e) EXP=$OPTARG;;
     (a) analyze=1;;
     (c) cld_artificial=$OPTARG
         EXP=930;;
-    (e) EXP=$OPTARG;;
     (o) output_control=1;;
     (s) sw_artificial=$OPTARG
         EXP=931;;

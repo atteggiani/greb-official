@@ -3,7 +3,7 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 
 # Read scenario and base file
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.sw.artificial.frominput-7.5_80yrs.ctl'
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2_80yrs.ctl'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 # filename_art_forcing = '/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.frominputX1.1'
 
@@ -62,7 +62,6 @@ data_base = parsevar(iris.load(outfile_base))
 #  Plotting anomalies contours
 print('Plotting anomalies contours...')
 for var in data:
-    # print('{}'.format(var.var_name))
     # annual mean
     plt.figure()
     plot_param.from_cube(var).to_annual_mean().to_anomalies(data_base).assign_var().plot(outpath=outdir_diff)
@@ -70,15 +69,6 @@ for var in data:
     plt.figure()
     plot_param.from_cube(var).to_seasonal_cycle().to_anomalies(data_base).assign_var().plot(outpath=outdir_diff)
 
-# #  Plotting variation contours
-# print('Plotting variation contours...')
-# for var in data:
-#     # annual mean
-#     plt.figure()
-#     plot_param.from_cube(var).to_annual_mean().to_variation(data_base).assign_var().plot(outpath=outdir_variation)
-#     # sesonal cycle
-#     plt.figure()
-#     plot_param.from_cube(var).to_seasonal_cycle().to_variation(data_base).assign_var().plot(outpath=outdir_variation)
 # Plot artificial clouds
 # if filename_art_forcing:
 #     print('Plotting artificial cloud "'+name_art_cloud+'"...')

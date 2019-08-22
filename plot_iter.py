@@ -3,7 +3,8 @@ from greb_climatevar import * # Import self defined classes and function
 ignore_warnings()
 from matplotlib.ticker import MultipleLocator
 time = input_('monthly')
-filename_first_correction = input_(r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1',2)
+filename_first_correction = input_(r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs',2)
+sim_years = input_(50,3)
 
 rms_a = []
 rms_s = []
@@ -14,7 +15,7 @@ outfile_base = filename_base + '.nc'
 bin2netCDF(filename_base)
 data_base = parsevar(iris.load(outfile_base))
 
-filename_original = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2'
+filename_original = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2_50yrs'
 bin2netCDF(filename_original)
 data = parsevar(iris.load(filename_original+'.nc'))
 ts = data[[v.var_name for v in data].index('tsurf')]
@@ -34,7 +35,7 @@ rms_s.append(TS.rms())
 os.remove(filename_first_correction+'.nc')
 
 niter = 1
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(str(niter),time)
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}_{}yrs'.format(str(niter),time,sim_years)
 while os.path.isfile(rmext(filename)+'.bin'):
     # Read scenario and base file
     filename_art_cloud=get_art_cloud_filename(filename)
@@ -70,7 +71,7 @@ while os.path.isfile(rmext(filename)+'.bin'):
     TS.assign_var().plot(outpath=outdir_diff)
     os.remove(outfile)
     niter += 1
-    filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}'.format(str(niter),time)
+    filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}_{}yrs'.format(str(niter),time,sim_years)
 os.remove(outfile_base)
 
 # plot rms_a

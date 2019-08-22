@@ -10,17 +10,19 @@ t_old_r="$5"
 
 ((${tot_iter:=5}))
 t=${t:='monthly'}
-flag=${flag:='FIXED'}
+flag=${flag:='NOT_FIXED'}
 if [ "$flag" == "NOT_FIXED" ] || [ "$flag" == "nf" ] || [ "$flag" == "not_fixed" ]
 then
     t="${t}_nf"
 fi
 wdir="/Users/dmar0022/university/phd/greb-official"
 # Files for 1st iteration
-t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1"}
+t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs"}
 t_new_r="$t_new"
-t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2"}
+t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2_50yrs"}
 t_iter="$t_new"
+
+sim_years=${t_new##*_}
 # Initialize iterations
 niter=1
 while (( $niter <= $tot_iter )); do
@@ -28,9 +30,9 @@ while (( $niter <= $tot_iter )); do
     python cloud_iteration.py $niter $t $t_new $t_new_r $t_old_r
     pad="Iter. ${niter}/${tot_iter} "
     printf "%*s%b" ${#pad} '' "-- Run GREB\n"
-    ${wdir}/myjobscript.bash "${wdir}/artificial_clouds/cld.artificial.iter${niter}_${t}"
+    ${wdir}/myjobscript.bash -a -y ${sim_years%yrs} -c "${wdir}/artificial_clouds/cld.artificial.iter${niter}_${t}"
     # Change files for next iteration
-    t_new="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}_${t}"
+    t_new="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}_${t}_${sim_years}"
     if [ "$flag" == "NOT_FIXED" ] || [ "$flag" == "nf" ] || [ "$flag" == "not_fixed" ]
     then
         t_old_r="$t_new_r"
@@ -39,6 +41,6 @@ while (( $niter <= $tot_iter )); do
     ((niter++))
 done
 echo -e "\nPlotting iterations...\n"
-python ${wdir}/plot_iter.py $t $t_iter
+python ${wdir}/plot_iter.py $t $t_iter ${sim_years%yrs}
 echo -e "DONE!!\n"
 exit
