@@ -880,25 +880,25 @@ def bin2netCDF(file):
     cdo = Cdo() # Initialize CDO
     cdo.import_binary(input = filename+'.ctl', output = filename+'.nc',
                       options = '-f nc')
-def check_bin(filename):
-    filename = rmext(filename)
-    return os.path.isfile(filename+'.bin')
-
-def check_control(scenario_file):
-    path,name = os.path.split(scenario_file)
-    if name[:8] == 'scenario':
-        name = 'control'+name[8:]
-        newfile = os.path.join(path,name)
-    else: raise Exception('Input file does not match "scenario" file name')
-    return check_bin(newfile),newfile
-
-def check_scenario(control_file):
-    path,name = os.path.split(control_file)
-    if name[:7] == 'control':
-        name = 'scenario'+name[7:]
-        newfile = os.path.join(path,name)
-    else: raise Exception('Input file does not match "control" file name')
-    return check_bin(newfile),newfile
+# def check_bin(filename):
+#     filename = rmext(filename)
+#     return os.path.isfile(filename+'.bin')
+#
+# def check_control(scenario_file):
+#     path,name = os.path.split(scenario_file)
+#     if name[:8] == 'scenario':
+#         name = 'control'+name[8:]
+#         newfile = os.path.join(path,name)
+#     else: raise Exception('Input file does not match "scenario" file name')
+#     return check_bin(newfile),newfile
+#
+# def check_scenario(control_file):
+#     path,name = os.path.split(control_file)
+#     if name[:7] == 'control':
+#         name = 'scenario'+name[7:]
+#         newfile = os.path.join(path,name)
+#     else: raise Exception('Input file does not match "control" file name')
+#     return check_bin(newfile),newfile
 
 def annual_mean(cubes):
     # Create annual mean
