@@ -4,11 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cdo import Cdo
 import os
+import warnings
 import sys
 from datetime import datetime as dtime
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.cm as cm
+import matplotlib.gridspec as gridspec
 
 class Dataset(xr.Dataset):
     '''
@@ -31,6 +33,48 @@ class Dataset(xr.Dataset):
             return DataArray(self._construct_dataarray(key))
         else:
             return Dataset(self._copy_listed(np.asarray(key)),attrs=self.attrs)
+
+    def plotall(self, projection = None, levels = None, cmap = None,
+                outpath = None, statistics=True, title = None,
+                cbar_kwargs = None, coast_kwargs = None, land_kwargs = None,
+                save_kwargs = None):
+        '''
+        Plots all the variables of the Dataset using DataArray.plotvar function.
+
+        '''
+
+        def _check_length(x,def_len):
+            x = [x] if not isinstance(x,list) else x
+            if len(x) > 1:
+                if len(x) != def_len:
+                    raise Exception('All properties must be lists of properties '+
+                                    'values and must have\nlength equal to the '+
+                                    'number of variables in the Dataset')
+                else:
+                    return x
+            else:
+                return x*def_len
+
+        vars=[v for v in self]
+        projection = _check_length(projection,len(vars))
+        levels = _check_length(levels,len(vars))
+        cmap = _check_length(cmap,len(vars))
+        outpath = _check_length(outpath,len(vars))
+        statistics = _check_length(statistics,len(vars))
+        title = _check_length(title,len(vars))
+        cbar_kwargs = _check_length(cbar_kwargs,len(vars))
+        coast_kwargs = _check_length(coast_kwargs,len(vars))
+        land_kwargs = _check_length(land_kwargs,len(vars))
+        save_kwargs = _check_length(save_kwargs,len(vars))
+
+        for var,pr,lv,cm,out,st,tit,cb_kw,co_kw,la_kw,sv_kw in zip(self,projection, \
+                        levels,cmap,outpath,statistics,title,cbar_kwargs, \
+                        coast_kwargs,land_kwargs,save_kwargs):
+            plt.figure()
+            self[var].plotvar(projection=pr,levels=lv,cmap=cm,outpath=out,statistics=st,
+                        title=tit,cbar_kwargs=cb_kw,coast_kwargs=co_kw,
+                        land_kwargs=la_kw,save_kwargs=sv_kw)
+
 
     def annual_mean(self,copy=True):
         return annual_mean(self,copy=copy)
@@ -118,6 +162,8 @@ class DataArray(xr.DataArray):
             coast_kwargs = {**coast_kwargs}
         else:
             coast_kwargs = {}
+        if self.name == 'cloud':
+            coast_kwargs = {'edgecolor':[0,.5,0.3],**coast_kwargs}
 
         if save_kwargs is not None:
             save_kwargs = {'dpi':300, 'bbox_inches':'tight', **save_kwargs}
@@ -143,6 +189,7 @@ class DataArray(xr.DataArray):
         if outpath is not None:
             plt.savefig(os.path.join(outpath,'.'.join([name, 'png'])),
                         format = 'png',**save_kwargs)
+            plt.close()
 
     def get_param(self):
         '''
@@ -363,6 +410,13 @@ class constants:
         return len(constants.t())
 
     @staticmethod
+    def time():
+        bin2netCDF(constants.cloud_def_file())
+        time=xr.open_dataset(constants.cloud_def_file()+'.nc').time
+        os.remove(constants.cloud_def_file()+'.nc')
+        return time
+
+    @staticmethod
     def greb_folder():
         return r'/Users/dmar0022/university/phd/greb-official'
 
@@ -387,7 +441,7 @@ class constants:
         return constants.greb_folder()+'/input/isccp.cloud_cover.clim'
 
     @staticmethod
-    def solar_radiation_def_file():
+    def solar_def_file():
         return constants.greb_folder()+'/input/solar_radiation.clim'
 
     @staticmethod
@@ -395,7 +449,7 @@ class constants:
         return constants.greb_folder()+'/artificial_clouds'
 
     @staticmethod
-    def solar_radiation_folder():
+    def solar_folder():
         return constants.greb_folder()+'/artificial_solar_radiation'
 
     @staticmethod
@@ -546,36 +600,7 @@ class constants:
         return data
 
     @staticmethod
-    def get_art_solar_filename(sc_filename):
-        '''
-        Gets the artificial solar filename used to obtain the scenario filename in input.
-
-        Arguments
-        ----------
-        sc_filename : str
-            Path to the scenario
-
-        Returns
-        ----------
-        str
-           Path to the artificial solar
-
-        '''
-
-        txt='exp-931.geoeng.'
-        sc_filename = rmext(os.path.split(sc_filename)[1])
-        if txt in sc_filename:
-            if 'yrs' in sc_filename.split('_')[-1]:
-                sc_filename = '_'.join(sc_filename.split('_')[:-1])
-            art_solar_name = sc_filename[sc_filename.index(txt)+len(txt):]
-            return os.path.join(constants.solar_radiation_folder(), art_solar_name)
-        elif 'exp-20.2xCO2' in sc_filename:
-            return constants.solar_radiation_def_file()
-        else:
-           raise Exception('The scenario filename must contain "exp-931.geoeng"')
-
-    @staticmethod
-    def get_art_cloud_filename(sc_filename):
+    def get_art_forcing_filename(sc_filename,forcing=None):
         '''
         Gets the artificial cloud filename used to obtain the scenario filename in input.
 
@@ -584,6 +609,13 @@ class constants:
         sc_filename : str
             Path to the scenario
 
+        Parameters
+        ----------
+        forcing : str
+           Type of forcing to retrieve. Can be set to "cloud" or "solar".
+           If not set, the forcing type will be tried to be understood from the
+           scenario filename.
+
         Returns
         ----------
         str
@@ -591,20 +623,37 @@ class constants:
 
         '''
 
-        txt='exp-930.geoeng.'
         sc_filename = rmext(os.path.split(sc_filename)[1])
+        if 'yrs' in sc_filename.split('_')[-1]:
+            sc_filename = '_'.join(sc_filename.split('_')[:-1])
+        if forcing is None:
+            if 'exp-930.geoeng.' in sc_filename:
+                txt='exp-930.geoeng.'
+                forcing='cloud'
+            elif 'exp-931.geoeng.' in sc_filename:
+                txt='exp-931.geoeng.'
+                forcing='solar'
+            else:
+                raise Exception('Invalid scenario filename.\nSpecify "forcing",'+
+                                ' or the scenario filename must contain either '+
+                                '"exp-930.geoeng." or "exp-931.geoeng.".')
+        elif forcing == 'cloud':
+            txt='exp-930.geoeng.'
+        elif forcing == 'solar':
+            txt='exp-931.geoeng.'
+        else: raise Exception('Supported forcings are "cloud" or "solar".')
+
         if txt in sc_filename:
-            if 'yrs' in sc_filename.split('_')[-1]:
-                sc_filename = '_'.join(sc_filename.split('_')[:-1])
-            art_cloud_name = sc_filename[sc_filename.index(txt)+len(txt):]
-            return os.path.join(constants.cloud_folder(), art_cloud_name)
-        elif 'exp-20.2xCO2' in sc_filename:
-            return constants.cloud_def_file()
+            art_forcing_name = sc_filename[sc_filename.index(txt)+len(txt):]
+            return os.path.join(eval('constants.{}_folder()'.format(forcing)), art_forcing_name)
+        elif ('exp-20.2xCO2' in sc_filename) or ('control.default' in sc_filename):
+            return eval('constants.{}_def_file()'.format(forcing))
         else:
-           raise Exception('The scenario filename must contain "exp-930.geoeng"')
+            raise Exception('Invalid scenario filename.\nThe scenario filename'+
+                            ' must contain "{}".'.format(txt))
 
     @staticmethod
-    def get_scenario_forcing_filename(forcing_filename,years=50):
+    def get_scenario_filename(forcing_filename,years_of_simulation=50):
         '''
         Gets the scenario filename from either an artifial cloud or solar forcing
         filename.
@@ -616,7 +665,7 @@ class constants:
 
         Parameters
         ----------
-        years : int
+        years_of_simulation : int
            Number of years for which the forcing simulation has been run
 
         Returns
@@ -631,17 +680,20 @@ class constants:
         forcing_filename = rmext(forcing_filename)
         forcing_filename_ = os.path.split(forcing_filename)[1]
         if txt1 in forcing_filename_:
-            sc_name = 'scenario.exp-930.geoeng.'+forcing_filename_+'_{}yrs'.format(years)
+            sc_name = 'scenario.exp-930.geoeng.'+forcing_filename_+'_{}yrs'.format(years_of_simulation)
         elif txt2 in forcing_filename_:
-            sc_name = 'scenario.exp-931.geoeng.'+forcing_filename_+'_{}yrs'.format(years)
-        elif (forcing_filename == constants.cloud_def_file()) or (forcing_filename == constants.solar_radiation_def_file()):
-            sc_name = 'scenario.exp-20.2xCO2'+'_{}yrs'.format(years)
+            sc_name = 'scenario.exp-931.geoeng.'+forcing_filename_+'_{}yrs'.format(years_of_simulation)
+        elif (forcing_filename == constants.cloud_def_file()) or (forcing_filename == constants.solar_def_file()):
+            sc_name = 'scenario.exp-20.2xCO2'+'_{}yrs'.format(years_of_simulation)
         else:
            raise Exception('The forcing file must contain either "cld.artificial" or "sw.artificial"')
         return os.path.join(constants.output_folder(),sc_name)
 
+    @staticmethod
+    def days_each_month():
+        return np.array([31,28,31,30,31,30,31,31,30,31,30,31])
 
-def _input(def_input,argv=1):
+def input_(def_input,argv=1):
     '''
     Function to set default inputs when running a script from Atom,
     but still allowing those input to be set as arguments when running the script
@@ -687,7 +739,7 @@ def ignore_warnings():
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
-def from_binary(filename,parse=True):
+def from_binary(filename,parse=True,time_group=None):
     """
     Read binary file into an xarray.Dataset object.
 
@@ -701,6 +753,12 @@ def from_binary(filename,parse=True):
     parse: Bool
         Set to True (default) if you want the output to be parsed with the custom
         "parse_greb_var" function, otherwise set to False.
+    time_group : str
+        Time grouping method to be chosen between: '12h','day','month','year','season'.
+        If chosen, the retrieved data belonging to the same time_group will be
+        averaged.
+        If "time_group" is smaller than the data time-resolution, a spline
+        interpolation is performed.
 
     Returns
     ----------
@@ -708,13 +766,65 @@ def from_binary(filename,parse=True):
         Dataset containing all the variables in the binary file.
 
     """
-
+    if time_group not in ['12h','day','month','year','season',None]:
+        raise Exception('time_group must be one of the following:\n'+\
+                        '"12h","day","month","year","season"')
     filename = rmext(filename)
     bin2netCDF(filename)
     data=xr.open_dataset(filename+'.nc')
-    # os.remove(filename+'.nc')
-    if parse: return parse_greb_var(data)
-    else: return data
+    os.remove(filename+'.nc')
+    attrs = data.attrs
+    if parse: data = parse_greb_var(data)
+    else: data = Dataset(data,attrs=attrs)
+    if time_group is not None:
+        if time_group == '12h':
+            t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().total_seconds()/(3600*12)
+            if (t_res <= 62) and (t_res > 2):
+                data = data.groupby('time.month').mean(dim='time',keep_attrs=True).squeeze()
+                data = data.rename({'month':'time'})
+                data=xr.apply_ufunc(lambda x: np.insert(x,0,x[...,0],axis=-1),data,input_core_dims=[['time']],
+                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
+                data=xr.apply_ufunc(lambda x: np.insert(x,-1,x[...,-1],axis=-1),data,input_core_dims=[['time']],
+                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
+                data = data.assign_coords(time=np.append(np.insert(np.cumsum(constants.days_each_month())-15,0,0),365)*2)
+                data=data.interp(time=np.arange(1,365*2+1),method='cubic',kwargs={'fill_value':'extrapolate'})
+                data = data.assign_coords(time=constants.time())
+            elif t_res <= 2:
+                data = data.groupby('time.dayofyear').mean(dim='time',keep_attrs=True).squeeze()
+                data = data.rename({'dayofyear':'time'})
+                data=xr.apply_ufunc(lambda x: np.insert(x,0,x[...,0],axis=-1),data,input_core_dims=[['time']],
+                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
+                data=xr.apply_ufunc(lambda x: np.insert(x,-1,x[...,-1],axis=-1),data,input_core_dims=[['time']],
+                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
+                data = data.assign_coords(time=(np.append(np.arange(0,(365+1)*2,2),731)))
+                data=data.interp(time=np.arange(1,365*2+1),method='cubic',kwargs={'fill_value':'extrapolate'})
+                data = data.assign_coords(time=constants.time())
+            else:
+                raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
+                                'Could not understand the time resolution of the data.')
+        elif time_group == 'day':
+            t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().days
+            if (t_res <= 31) and (t_res > 1):
+                data = data.groupby('time.month').mean(dim='time',keep_attrs=True).squeeze()
+                data = data.rename({'month':'time'})
+                data=xr.apply_ufunc(lambda x: np.insert(x,0,x[...,0],axis=-1),data,input_core_dims=[['time']],
+                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
+                data=xr.apply_ufunc(lambda x: np.insert(x,-1,x[...,-1],axis=-1),data,input_core_dims=[['time']],
+                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
+                data = data.assign_coords(time=np.append(np.insert(np.cumsum(constants.days_each_month())-15,0,0),365)*1)
+                data=data.interp(time=np.arange(1,365*1+1),method='cubic',kwargs={'fill_value':'extrapolate'})
+                data = data.assign_coords(time=constants.time()[::2])
+            elif t_res <= 1:
+                data = data.groupby('time.dayofyear').mean(dim='time',keep_attrs=True).squeeze()
+                data = data.rename({'dayofyear':'time'})
+                data = data.assign_coords(time=constants.time()[::2])
+            else:
+                raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
+                                'Could not understand the time resolution of the data.')
+        else:
+            data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).squeeze()
+            data = data.rename({'{}'.format(time_group):'time'})
+    return Dataset(data,attrs=attrs)
 
 def rmext(filename):
     """
@@ -1674,7 +1784,7 @@ def create_solar(time = None, latitude = None, value = 1,
     # Write .bin and .ctl files
     vars = {'solar':data}
     if outpath is None:
-        outpath=constants.solar_radiation_folder()+'/sw.artificial.ctl'
+        outpath=constants.solar_folder()+'/sw.artificial.ctl'
     create_bin_ctl(outpath,vars)
 
 def data_from_binary(filename,parse=False,time_group=None):
@@ -1739,7 +1849,8 @@ def data_from_binary(filename,parse=False,time_group=None):
     dic = dict(zip(keys,vals))
     return dic
 
-def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None, draw_point_flag = True):
+def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle',
+                      draw_point_flag = True):
     '''
     Plot annual cycle for a specific point
 
@@ -1747,9 +1858,9 @@ def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None,
     ----------
     coord : tuple
         Tuple of the lat/lon values for the point to plot.
-    data : array
-        Array of the data you want to plot. Further arrays can be added after that
-        to overlay multiple data plots for comparison.
+    data : DataArray
+        DataArray of the data you want to plot. Further DataArrays can be added
+        after the first to overlay multiple data plots for comparison.
         (e.g. plot_annual_cicle(...,data1,data2,..,dataN,...))
 
     Parameters
@@ -1766,7 +1877,7 @@ def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None,
     Returns
     ----------
     -
-        Graph of the annual cycle, for the specific point and data in input.
+        Graph of the annual cycle, for the specified point and data in input.
 
     '''
 
@@ -1777,7 +1888,7 @@ def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None,
     def draw_point(lat,lon,ax=None):
          x,y = to_Robinson_cartesian(lat,lon)
          patch = lambda x,y: mpatches.Circle((x,y), radius=6e5, color = 'red',
-                                                           transform=ccrs.Robinson())
+                                                      transform=ccrs.Robinson())
          ax = plt.axes(projection=ccrs.Robinson()) if ax is None else plt.gca()
          ax.stock_img()
          ax.add_patch(patch(x,y))
@@ -1786,16 +1897,15 @@ def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None,
     x=constants.t().tolist()
     x=[constants.from_greb_time(a) for a in x]
     for ind,d in enumerate(data):
-        try:
-            y=d[:,i,j].data
-        except:
-            y=d[:,i,j]
+        if not check_xarray(d,'DataArray'):
+            exception_xarray(type = 'DataArray',varname='all data')
+        y=d.isel(lat=i,lon=j)
         plt.plot(x,y,label = '{}'.format(ind+1))
     if legend: plt.legend(loc = 'lower left',bbox_to_anchor=(0,1.001))
     plt.grid()
     plt.title(title,fontsize=15)
 
-    if var == 'cloud':
+    if data[0].name == 'cloud':
         plt.ylim([-0.02,1.02])
         m1,m2=plt.xlim()
         plt.hlines(0,m1-100,m2+100,linestyles='--',colors='black',linewidth=0.7)
@@ -1810,29 +1920,88 @@ def plot_annual_cycle(coord,*data,legend=True, title='Annual Cycle', var = None,
         sub_ax.outline_patch.set_path_effects([Stroke(linewidth=1.5)])
         draw_point(*coord,sub_ax)
 
+def plot_clouds_and_tsurf(*cloudfiles, years_of_simulation=50, coords = None,
+                          labels = None):
+    '''
+    Plot the annual cycle of clouds along with the tsurf response, for the
+    specified points.
+
+    Arguments
+    ----------
+    cloudfiles : str
+        Path to the clouds data
+
+    Parameters
+    ----------
+    years_of_simulation: int
+        Number of years for which the forcing simulation has been run
+    coords : tuple or list of tuples.
+        Lat/Lon coordinates of the point(s) to plot. If not provided the following
+        default points will be plotted:
+        [(42,12.5),(-37.8,145),(-80,0),(80,0),(0,230)]
+    labels : str or list of str
+        Legend labels for the plot.
+
+    Returns
+    ----------
+    -
+        Graph(s) of the clouds and tsurf response annual cycle, for the specified
+        point(s) and data in input.
+
+    '''
+    import matplotlib.ticker as ticker
+
+    cloud = [from_binary(f,time_group='12h').cloud for f in cloudfiles]
+    cloud_ctr = from_binary(constants.cloud_def_file(),time_group='12h').cloud
+    tfiles = [constants.get_scenario_filename(f,years_of_simulation=years_of_simulation) for f in cloudfiles]
+    tsurf = [from_binary(f,time_group='12h').tsurf for f in tfiles]
+    tsurf_ctr = from_binary(constants.control_def_file(),time_group='12h').tsurf
+
+    cloud_anomaly = [c.anomalies(cloud_ctr) for c in cloud]
+    tsurf_anomaly = [t.anomalies(tsurf_ctr) for t in tsurf]
+    if coords is None:
+        coords = [(42,12.5),(-37.8,145),(-80,0),(80,0),(0,230)]
+    gs = gridspec.GridSpec(2, 2, wspace=0.25, hspace=0.4)
+
+    for coord in coords:
+        plt.figure()
+        ax1 = plt.subplot(gs[0, 0])
+        plot_annual_cycle(coord,*cloud_anomaly)
+        ax1.set_ylim([-1,1])
+        ax1.set_title('cloud anomaly annual cycle',fontsize=10)
+        l=ax1.get_legend()
+        if labels is not None:
+            for a,label in zip(l.get_texts(),labels): a.set_text(label)
+        l.set_bbox_to_anchor([-0.18,1.2])
+        for tick in ax1.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+
+        ax2 = plt.subplot(gs[0,1])
+        plot_annual_cycle(coord,*tsurf_anomaly,draw_point_flag=False)
+        ax2.set_ylim([-5,5])
+        ax2.set_title('tsurf anomaly annual cycle',fontsize=10)
+        ax2.get_legend().remove()
+        for tick in ax2.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+        ax2.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+
+        ax3 = plt.subplot(gs[1, 0])
+        plot_annual_cycle(coord,*cloud,draw_point_flag=False)
+        ax3.set_ylim([0,1])
+        ax3.set_title('cloud annual cycle',fontsize=10)
+        ax3.get_legend().remove()
+        for tick in ax3.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+
+        ax4 = plt.subplot(gs[1,1])
+        plot_annual_cycle(coord,*tsurf,draw_point_flag=False)
+        ax4.set_ylim([223,323])
+        ax4.set_title('tsurf annual cycle',fontsize=10)
+        ax4.get_legend().remove()
+        for tick in ax4.xaxis.get_major_ticks(): tick.label.set_fontsize(6.5)
+        ax4.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+
+        axP = plt.gcf().axes[1]
+        axP.set_position([0.265, 0.95, 0.5, 0.15])
+
 # ============================================================================ #
 # ============================================================================ #
 # ============================================================================ #
 # ============================================================================ #
-
-x = from_binary('/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2')
-x_base = from_binary('/Users/dmar0022/university/phd/greb-official/output/control.default')
-cloud=data_from_binary('/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial_best')['cloud']
-
-plt.figure(figsize=(6,4))
-x.annual_mean().anomalies(x_base).precip.plotvar()
-plt.title
-
-
-
-
-plt.axes(projection=ccrs.Robinson())
-self.to_contiguous_lon().plot.contourf(transform=ccrs.PlateCarree(),
-levels = np.arange(-2,2+0.2,0.2),
-extend='both',
-cmap = cm.RdBu_r,
-cbar_kwargs={'orientation':'horizontal','label':'[K]','ticks':[0,1,2]})
-
-plt.figure(figsize=(6,6)); plt.axes(); plt.title(None)
-self.attrs
-a=plt.gca()
