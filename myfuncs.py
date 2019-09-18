@@ -18,6 +18,216 @@ class Dataset(xr.Dataset):
 
     '''
 
+    def __add__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]+other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]+other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]+other
+        return self
+
+    def __radd__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other+self[other.name]
+        else:
+            for var in self:
+                self[var]=other+self[var]
+        return self
+
+    def __sub__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]-other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]-other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]-other
+        return self
+
+    def __rsub__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other-self[other.name]
+        else:
+            for var in self:
+                self[var]=other-self[var]
+        return self
+
+    def __mul__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]*other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]*other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]*other
+        return self
+
+    def __rmul__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other*self[other.name]
+        else:
+            for var in self:
+                self[var]=other*self[var]
+        return self
+
+    def __truediv__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]/other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]/other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]/other
+        return self
+
+    def __rtruediv__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other/self[other.name]
+        else:
+            for var in self:
+                self[var]=other/self[var]
+        return self
+
+    def __floordiv__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]//other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]//other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]//other
+        return self
+
+    def __rfloordiv__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other//self[other.name]
+        else:
+            for var in self:
+                self[var]=other//self[var]
+        return self
+
+    def __pow__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]**other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]**other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]**other
+        return self
+
+    def __rpow__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other**self[other.name]
+        else:
+            for var in self:
+                self[var]=other**self[var]
+        return self
+
+    def __mod__(self,other):
+        self=self.copy()
+        if check_xarray(other,'Dataset'):
+            for var in self:
+                if var in [v for v in other]: self[var]=self[var]%other[var]
+                else: self[var]=self[var]
+        elif check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            for var in self:
+                if var == other.name: self[var]=self[var]%other
+                else: self[var]=self[var]
+        else:
+            for var in self:
+                self[var]=self[var]%other
+        return self
+
+    def __rmod__(self,other):
+        self=self.copy()
+        if check_xarray(other,'DataArray'):
+            if other.name not in [v for v in self]:
+                raise Exception('Impossible to compute operation. Data variable'+
+                                ' names mismatch.')
+            self=other%self[other.name]
+        else:
+            for var in self:
+                self[var]=other%self[var]
+        return self
+
     def __getitem__(self, key):
         """Access variables or coordinates this dataset as a
         :myfuncs:class:`~__main__.DataArray`.
@@ -76,31 +286,95 @@ class Dataset(xr.Dataset):
                         land_kwargs=la_kw,save_kwargs=sv_kw)
 
 
-    def annual_mean(self,copy=True):
-        return annual_mean(self,copy=copy)
+    def annual_mean(self,copy=True,update_attrs=True):
+        return annual_mean(self,copy=copy,update_attrs=update_attrs)
 
-    def seasonal_cycle(self,copy=True):
-            return seasonal_cycle(self,copy=copy)
+    def seasonal_cycle(self,copy=True,update_attrs=True):
+            return seasonal_cycle(self,copy=copy,update_attrs=update_attrs)
 
-    def anomalies(self,base,copy=True):
-        return anomalies(self,base,copy=copy)
+    def anomalies(self,base=None,copy=True,update_attrs=True):
+        return anomalies(self,x_base=base,copy=copy,update_attrs=update_attrs)
 
     def average(self, dim=None, weights=None,**kwargs):
         if not check_xarray(self, 'Dataset'):
             exception_xarray(type='Dataset')
         return self.apply(average, dim=dim, weights=weights,**kwargs)
 
-    def global_mean(self,copy=True):
-        return global_mean(self,copy=copy)
+    def global_mean(self,copy=True,update_attrs=True):
+        return global_mean(self,copy=copy,update_attrs=update_attrs)
 
-    def rms(self,copy=True):
-        return rms(self,copy=copy)
+    def rms(self,copy=True,update_attrs=True):
+        return rms(self,copy=copy,update_attrs=update_attrs)
+
+    def to_celsius(self,copy=True):
+        def func(x):
+            try: return x.to_celsius()
+            except: return x
+        if copy: self = self.copy()
+        return self.apply(lambda x: func(x),keep_attrs=True)
+
 
 class DataArray(xr.DataArray):
     '''
     Wrapper for xarray.DataArray class in order to add user-defined functions
 
     '''
+
+    def __add__(self,other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)+other,attrs=attrs)
+
+    def __radd__(self,other):
+        attrs=self.attrs
+        return DataArray(other+xr.DataArray(self),attrs=attrs)
+
+    def __sub__(self,other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)-other,attrs=attrs)
+
+    def __rsub__(self,other):
+        attrs=self.attrs
+        return DataArray(other-xr.DataArray(self),attrs=attrs)
+
+    def __mul__(self,other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)*other,attrs=attrs)
+
+    def __rmul__(self,other):
+        attrs=self.attrs
+        return DataArray(other*xr.DataArray(self),attrs=attrs)
+
+    def __truediv__(self,other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)/other,attrs=attrs)
+
+    def __rtruediv__(self,other):
+        attrs=self.attrs
+        return DataArray(other/xr.DataArray(self),attrs=attrs)
+
+    def __floordiv__(self, other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)//other,attrs=attrs)
+
+    def __floordiv__(self,other):
+        attrs=self.attrs
+        return DataArray(other//xr.DataArray(self),attrs=attrs)
+
+    def __pow__(self,other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)**other,attrs=attrs)
+
+    def __rpow__(self,other):
+        attrs=self.attrs
+        return DataArray(other**xr.DataArray(self),attrs=attrs)
+
+    def __mod__(self,other):
+        attrs=self.attrs
+        return DataArray(xr.DataArray(self)%other,attrs=attrs)
+
+    def __rmod__(self,other):
+        attrs=self.attrs
+        return DataArray(other%xr.DataArray(self),attrs=attrs)
 
     def plotvar(self, projection = None, levels = None, cmap = None,
                 outpath = None, statistics=True, title = None,
@@ -358,23 +632,37 @@ class DataArray(xr.DataArray):
         '''
         return xr.concat([self, self.sel(lon=0).assign_coords(lon=360.)], dim='lon')
 
-    def annual_mean(self,copy=True):
-        return annual_mean(self,copy=copy)
+    def annual_mean(self,copy=True,update_attrs=True):
+        return annual_mean(self,copy=copy,update_attrs=update_attrs)
 
-    def seasonal_cycle(self,copy=True):
-        return seasonal_cycle(self,copy=copy)
+    def seasonal_cycle(self,copy=True,update_attrs=True):
+        return seasonal_cycle(self,copy=copy,update_attrs=update_attrs)
 
-    def anomalies(self,base,copy=True):
-        return anomalies(self,base,copy=copy)
+    def anomalies(self,base=None,copy=True,update_attrs=True):
+        return anomalies(self,x_base=base,copy=copy,update_attrs=update_attrs)
 
     def average(self, dim=None, weights=None,**kwargs):
         return average(self, dim=dim, weights=weights,**kwargs)
 
-    def global_mean(self,copy=True):
-        return global_mean(self,copy=copy)
+    def global_mean(self,copy=True,update_attrs=True):
+        return global_mean(self,copy=copy,update_attrs=update_attrs)
 
-    def rms(self,copy=True):
-        return rms(self,copy=copy)
+    def rms(self,copy=True,update_attrs=True):
+        return rms(self,copy=copy,update_attrs=update_attrs)
+
+    def to_celsius(self,copy=True):
+        if copy: self = self.copy()
+        if self.attrs['units'] == 'K':
+            self.attrs['units'] = 'C'
+            attrs=self.attrs
+            newarray=self-273.15
+            newarray.attrs = attrs
+            return newarray
+        elif self.attrs['units'] == 'C':
+            return self
+        else:
+            raise Exception('Cannot convert to Celsius.\n{} '.format(self.name)+
+                            'does not have temperature units.')
 
 class constants:
     '''
@@ -387,7 +675,10 @@ class constants:
 
     @staticmethod
     def t():
-        return np.arange(17522904.,17531652.+12,12)
+        bin2netCDF(constants.cloud_def_file())
+        time=xr.open_dataset(constants.cloud_def_file()+'.nc').time
+        os.remove(constants.cloud_def_file()+'.nc')
+        return time
 
     @staticmethod
     def lat():
@@ -411,9 +702,7 @@ class constants:
 
     @staticmethod
     def time():
-        bin2netCDF(constants.cloud_def_file())
-        time=xr.open_dataset(constants.cloud_def_file()+'.nc').time
-        os.remove(constants.cloud_def_file()+'.nc')
+
         return time
 
     @staticmethod
@@ -433,8 +722,8 @@ class constants:
         return constants.greb_folder()+'/input'
 
     @staticmethod
-    def scenario_2xCO2():
-        return constants.output_folder()+'/scenario.exp-20.2xCO2'
+    def scenario_2xCO2(years_of_simulation=50):
+        return constants.output_folder()+'/scenario.exp-20.2xCO2_{}yrs'.format(years_of_simulation)
 
     @staticmethod
     def cloud_def_file():
@@ -461,7 +750,7 @@ class constants:
         return constants.output_folder()+'/control.default'
 
     @staticmethod
-    def to_greb_grid(x, method='linear'):
+    def to_greb_grid(x, method='cubic'):
         '''
         Regrid data to GREB lat/lon grid.
 
@@ -600,6 +889,30 @@ class constants:
         return data
 
     @staticmethod
+    def get_years_of_simulation(sc_filename):
+        '''
+        Gets the number of years of simulations for the specified scenario file.
+
+        Arguments
+        ----------
+        sc_filename : str
+            Path to the scenario file
+
+        Returns
+        ----------
+        int
+           Number of years of simulations
+
+        '''
+
+        if 'yrs' not in sc_filename.split('_')[-1]:
+            raise Exception('Could not understand the number of years of simulation.'+
+                            '\nNumber of years of simulation N must be at the end of'+
+                            ' sc_filename in the form "_Nyrs"')
+        else:
+            return (sc_filename.split('_')[-1])[:-3]
+
+    @staticmethod
     def get_art_forcing_filename(sc_filename,forcing=None):
         '''
         Gets the artificial cloud filename used to obtain the scenario filename in input.
@@ -607,7 +920,7 @@ class constants:
         Arguments
         ----------
         sc_filename : str
-            Path to the scenario
+            Path to the scenario file
 
         Parameters
         ----------
@@ -642,10 +955,12 @@ class constants:
         elif forcing == 'solar':
             txt='exp-931.geoeng.'
         else: raise Exception('Supported forcings are "cloud" or "solar".')
-
         if txt in sc_filename:
             art_forcing_name = sc_filename[sc_filename.index(txt)+len(txt):]
-            return os.path.join(eval('constants.{}_folder()'.format(forcing)), art_forcing_name)
+            if '.iter' in sc_filename:
+                return os.path.join(eval('constants.{}_folder()'.format(forcing)),'cld.artificial.iteration_'+'_'.join(sc_filename.split('_')[1:]),art_forcing_name)
+            else:
+                return os.path.join(eval('constants.{}_folder()'.format(forcing)), art_forcing_name)
         elif ('exp-20.2xCO2' in sc_filename) or ('control.default' in sc_filename):
             return eval('constants.{}_def_file()'.format(forcing))
         else:
@@ -739,7 +1054,7 @@ def ignore_warnings():
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
-def from_binary(filename,parse=True,time_group=None):
+def from_binary(filename,time_group=None,parse=True):
     """
     Read binary file into an xarray.Dataset object.
 
@@ -750,15 +1065,15 @@ def from_binary(filename,parse=True,time_group=None):
 
     Parameters
     ----------
-    parse: Bool
-        Set to True (default) if you want the output to be parsed with the custom
-        "parse_greb_var" function, otherwise set to False.
     time_group : str
         Time grouping method to be chosen between: '12h','day','month','year','season'.
         If chosen, the retrieved data belonging to the same time_group will be
         averaged.
         If "time_group" is smaller than the data time-resolution, a spline
         interpolation is performed.
+    parse: Bool
+        Set to True (default) if you want the output to be parsed with the custom
+        "parse_greb_var" function, otherwise set to False.
 
     Returns
     ----------
@@ -775,55 +1090,26 @@ def from_binary(filename,parse=True,time_group=None):
     os.remove(filename+'.nc')
     attrs = data.attrs
     if parse: data = parse_greb_var(data)
-    else: data = Dataset(data,attrs=attrs)
+    t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().total_seconds()/(3600*12)
+    if t_res > 62:
+        raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
+                        'Could not understand the time resolution of the data.')
+
     if time_group is not None:
+        attrs['grouped_by'] = time_group
+        for var in data: data._variables[var].attrs['grouped_by'] = time_group
+        interp=False
         if time_group == '12h':
-            t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().total_seconds()/(3600*12)
-            if (t_res <= 62) and (t_res > 2):
-                data = data.groupby('time.month').mean(dim='time',keep_attrs=True).squeeze()
-                data = data.rename({'month':'time'})
-                data=xr.apply_ufunc(lambda x: np.insert(x,0,x[...,0],axis=-1),data,input_core_dims=[['time']],
-                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
-                data=xr.apply_ufunc(lambda x: np.insert(x,-1,x[...,-1],axis=-1),data,input_core_dims=[['time']],
-                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
-                data = data.assign_coords(time=np.append(np.insert(np.cumsum(constants.days_each_month())-15,0,0),365)*2)
-                data=data.interp(time=np.arange(1,365*2+1),method='cubic',kwargs={'fill_value':'extrapolate'})
-                data = data.assign_coords(time=constants.time())
-            elif t_res <= 2:
-                data = data.groupby('time.dayofyear').mean(dim='time',keep_attrs=True).squeeze()
-                data = data.rename({'dayofyear':'time'})
-                data=xr.apply_ufunc(lambda x: np.insert(x,0,x[...,0],axis=-1),data,input_core_dims=[['time']],
-                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
-                data=xr.apply_ufunc(lambda x: np.insert(x,-1,x[...,-1],axis=-1),data,input_core_dims=[['time']],
-                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
-                data = data.assign_coords(time=(np.append(np.arange(0,(365+1)*2,2),731)))
-                data=data.interp(time=np.arange(1,365*2+1),method='cubic',kwargs={'fill_value':'extrapolate'})
-                data = data.assign_coords(time=constants.time())
-            else:
-                raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
-                                'Could not understand the time resolution of the data.')
+            nt=730
+            time_group = 'month'
+            interp=True
         elif time_group == 'day':
-            t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().days
-            if (t_res <= 31) and (t_res > 1):
-                data = data.groupby('time.month').mean(dim='time',keep_attrs=True).squeeze()
-                data = data.rename({'month':'time'})
-                data=xr.apply_ufunc(lambda x: np.insert(x,0,x[...,0],axis=-1),data,input_core_dims=[['time']],
-                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
-                data=xr.apply_ufunc(lambda x: np.insert(x,-1,x[...,-1],axis=-1),data,input_core_dims=[['time']],
-                                 output_core_dims=[['time']], keep_attrs=True,exclude_dims={'time'})
-                data = data.assign_coords(time=np.append(np.insert(np.cumsum(constants.days_each_month())-15,0,0),365)*1)
-                data=data.interp(time=np.arange(1,365*1+1),method='cubic',kwargs={'fill_value':'extrapolate'})
-                data = data.assign_coords(time=constants.time()[::2])
-            elif t_res <= 1:
-                data = data.groupby('time.dayofyear').mean(dim='time',keep_attrs=True).squeeze()
-                data = data.rename({'dayofyear':'time'})
-                data = data.assign_coords(time=constants.time()[::2])
-            else:
-                raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
-                                'Could not understand the time resolution of the data.')
-        else:
-            data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).squeeze()
-            data = data.rename({'{}'.format(time_group):'time'})
+            nt=365
+            time_group = 'dayofyear'
+            interp=True
+        data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).rename({'{}'.format(time_group):'time'})
+        if interp:
+            data = data.interp(time=np.linspace(data.time[0]-0.5,data.time[-1]+0.5,nt),method='cubic',kwargs={'fill_value':'extrapolate'}).assign_coords(time=constants.t()[::int(730/nt)])
     return Dataset(data,attrs=attrs)
 
 def rmext(filename):
@@ -922,7 +1208,7 @@ def check_xarray(x,type=None):
     return np.logical_or(da,ds)
 
 
-def parse_greb_var(x):
+def parse_greb_var(x,update_attrs=True):
     '''
     Corrects GREB model output variables and adds units label
 
@@ -931,13 +1217,19 @@ def parse_greb_var(x):
     x : xarray.Dataset or xarray.DataArray object
        array of GREB output variables to be parsed
 
+    Parameters
+    ----------
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that it was parsed with the "parse_var" function.
+
     Returns
     ----------
     xarray.Dataset or xarray.DataArray depending on the argument's type
 
     '''
 
-    def _parsevar(x):
+    def _parsevar(x,update_attrs=None):
         name = x.name
         # TATMOS,TSURF,TOCEAN
         if name == 'tatmos':
@@ -974,21 +1266,28 @@ def parse_greb_var(x):
             x.attrs['long_name']='SW Radiation'
             x.attrs['units']='W/m2'
 
-        x.attrs['parse_greb_var']='Parsed with parse_greb_var function'
+        if update_attrs:
+            x.attrs['parse_greb_var']='Parsed with parse_greb_var function'
         return x
 
     if 'parse_greb_var' in x.attrs: return x
     if check_xarray(x,'dataarray'):
-        return DataArray(_parsevar(x).squeeze())
+        return DataArray(_parsevar(x,update_attrs).squeeze())
     elif check_xarray(x,'dataset'):
-        x.apply(lambda a: _parsevar(a),keep_attrs=True)
-        x.attrs['parse_greb_var']='Parsed with parse_greb_var function'
+        x.apply(lambda a: _parsevar(a,update_attrs),keep_attrs=True)
+        if update_attrs:
+            x.attrs['parse_greb_var']='Parsed with parse_greb_var function'
         return Dataset(x,attrs=x.attrs).squeeze()
     else: exception_xarray()
 
 def average(x, dim=None, weights=None,**kwargs):
     """
     weighted average for DataArrays
+
+    Arguments
+    ----------
+    x : xarray.DataArray
+        array to compute the average on
 
     Parameters
     ----------
@@ -1006,6 +1305,7 @@ def average(x, dim=None, weights=None,**kwargs):
     """
 
     if not check_xarray(x,'DataArray'): exception_xarray('DataArray')
+    attrs=x.attrs
     if weights is None:
         return x.mean(dim,**kwargs)
     else:
@@ -1018,9 +1318,9 @@ def average(x, dim=None, weights=None,**kwargs):
         else:
             total_weights = weights.sum(dim,**kwargs)
         numerator = xr.apply_ufunc(lambda a,b: a*b,x, weights,**kwargs).sum(dim,**kwargs)
-        return xr.apply_ufunc(lambda a,b: a/b,numerator, total_weights,**kwargs)
+        return DataArray(xr.apply_ufunc(lambda a,b: a/b,numerator, total_weights,**kwargs),attrs=attrs)
 
-def rms(x,copy=True):
+def rms(x,copy=True,update_attrs=True):
     '''
     Compute the root mean square error over "lat" and "lon" dimension.
 
@@ -1034,6 +1334,9 @@ def rms(x,copy=True):
     copy : Bool
        set to True (default) if you want to return a copy of the argument in
        input; set to False if you want to overwrite the input argument.
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that the "rms" function has been applied to it.
 
     Returns
     ----------
@@ -1049,12 +1352,18 @@ def rms(x,copy=True):
     if 'global_mean' in x.attrs:
         raise Exception('Cannot perform rms on a variable on which global mean has already been performed')
     if copy: x = x.copy()
-    x.attrs['rms'] = 'Computed root mean square'
+    func=DataArray
     if check_xarray(x,'Dataset'):
-        for var in x: x[var].attrs['rms'] = 'Computed root mean square'
-    return xr.ufuncs.sqrt(global_mean(x**2))
+        if update_attrs:
+            for var in x: x[var].attrs['rms'] = 'Computed root mean square'
+        func=Dataset
+    attrs=x.attrs
+    gm=global_mean(x**2,update_attrs=False)
+    if update_attrs:
+        attrs['rms'] = 'Computed root mean square'
+    return func(xr.apply_ufunc(lambda x: np.sqrt(x),gm,keep_attrs=True),attrs=attrs)
 
-def annual_mean(x,copy=True):
+def annual_mean(x,copy=True,update_attrs=True):
     '''
     Compute the mean over 'time' dimension.
 
@@ -1068,6 +1377,9 @@ def annual_mean(x,copy=True):
     copy : Bool
        set to True (default) if you want to return a copy of the argument in
        input; set to False if you want to overwrite the input argument.
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that the annual_mean function has been applied to it.
 
     Returns
     ----------
@@ -1081,17 +1393,14 @@ def annual_mean(x,copy=True):
     if 'annual_mean' in x.attrs: return x
     if 'seasonal_cycle' in x.attrs:
         raise Exception('Cannot perform annual mean on a variable on which seasonal cycle has already been performed')
-    if 'global_mean' in x.attrs:
-        raise Exception('Cannot perform annual mean on a variable on which global mean has already been performed')
-    if 'rms' in x.attrs:
-        raise Exception('Cannot perform annual mean on a variable on which rms has already been performed')
     if copy: x = x.copy()
-    x.attrs['annual_mean'] = 'Computed annual mean'
-    if check_xarray(x,'Dataset'):
-        for var in x: x._variables[var].attrs['annual_mean'] = 'Computed annual mean'
+    if update_attrs:
+        x.attrs['annual_mean'] = 'Computed annual mean'
+        if check_xarray(x,'Dataset'):
+            for var in x: x._variables[var].attrs['annual_mean'] = 'Computed annual mean'
     return x.mean(dim='time',keep_attrs=True).squeeze()
 
-def global_mean(x,copy=True):
+def global_mean(x,copy=True,update_attrs=True):
     '''
     Compute the global mean over 'lat' and 'lon' dimension.
     The average over 'lat' dimension will be weigthed with cos(lat).
@@ -1106,6 +1415,9 @@ def global_mean(x,copy=True):
     copy : Bool
        set to True (default) if you want to return a copy of the argument in
        input; set to False if you want to overwrite the input argument.
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that the "global_mean" function has been applied to it.
 
     Returns
     ----------
@@ -1122,13 +1434,14 @@ def global_mean(x,copy=True):
     if 'rms' in x.attrs:
         raise Exception('Cannot perform global mean on a variable on which rms has already been performed')
     if copy: x = x.copy()
-    x.attrs['global_mean'] = 'Computed global mean'
-    if check_xarray(x,'Dataset'):
-        for var in x: x._variables[var].attrs['global_mean'] = 'Computed global mean'
+    if update_attrs:
+        x.attrs['global_mean'] = 'Computed global mean'
+        if check_xarray(x,'Dataset'):
+            for var in x: x._variables[var].attrs['global_mean'] = 'Computed global mean'
     weights = np.cos(np.deg2rad(x.lat))
     return x.average(dim='lat',weights=weights,keep_attrs=True).mean('lon',keep_attrs=True).squeeze()
 
-def seasonal_cycle(x,copy=True):
+def seasonal_cycle(x,copy=True,update_attrs=True):
     '''
     Compute the seasonal cycle (DJF-JJA) over time dimension
 
@@ -1142,6 +1455,9 @@ def seasonal_cycle(x,copy=True):
     copy : Bool
        set to True (default) if you want to return a copy of the argument in
        input; set to False if you want to overwrite the input argument.
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that the "seasonal_cycle" function has been applied to it.
 
     Returns
     ----------
@@ -1160,16 +1476,14 @@ def seasonal_cycle(x,copy=True):
     if 'rms' in x.attrs:
         raise Exception('Cannot perform seasonal cycle on a variable on which rms has already been performed')
     if copy: x = x.copy()
-    x.attrs['seasonal_cycle'] = 'Computed seasonal cycle'
-    func = DataArray
-    if check_xarray(x,'Dataset'):
-        for var in x: x._variables[var].attrs['seasonal_cycle'] = 'Computed seasonal cycle'
-        func = Dataset
+    if update_attrs:
+        x.attrs['seasonal_cycle'] = 'Computed seasonal cycle'
+        if check_xarray(x,'Dataset'):
+            for var in x: x._variables[var].attrs['seasonal_cycle'] = 'Computed seasonal cycle'
     x_seas=x.groupby('time.season').mean(dim='time',keep_attrs=True).squeeze()
-    return func(xr.apply_ufunc(lambda a,b: (a-b)/2, x_seas.sel(season='DJF'),
-                        x_seas.sel(season='JJA'),keep_attrs=True),attrs=x.attrs)
+    return (x_seas.sel(season='DJF')-x_seas.sel(season='JJA'))/2
 
-def anomalies(x,x_base,copy=True):
+def anomalies(x,x_base=None,copy=True,update_attrs=True):
     '''
     Compute anomalies of x with respect to x_base (x-x_base).
 
@@ -1186,6 +1500,9 @@ def anomalies(x,x_base,copy=True):
     copy : Bool
        set to True (default) if you want to return a copy of the argument in
        input; set to False if you want to overwrite the input argument.
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that the "anomalies" function has been applied to it.
 
     Returns
     ----------
@@ -1195,47 +1512,41 @@ def anomalies(x,x_base,copy=True):
 
     '''
 
+    def fun(y):
+        attrs = y.attrs
+        newy=np.repeat(y,(x.time.shape[0])/12,axis=0).assign_coords(time=x.time.values)
+        newy.attrs = attrs
+        return newy
+
     if not check_xarray(x): exception_xarray()
-    if not check_xarray(x_base): exception_xarray()
-    if 'anomalies' in x.attrs: return x
+    if x_base is None:
+        if 'grouped_by' in x.attrs:
+            x_base = from_binary(constants.control_def_file(),x.attrs['grouped_by'])
+        else:
+            x_base = from_binary(constants.control_def_file()).apply(fun,keep_attrs=True)
+        # Change to Celsius if needed
+        temp = ['tsurf','tocean','tatmos']
+        if check_xarray(x,'DataArray'):
+            if x.name in temp:
+                if x.attrs['units'] == 'C': x_base = x_base.to_celsius(copy=False)
+        else:
+            vars=[d for d in x]
+            for t in temp:
+                if t in vars:
+                    if x[t].attrs['units'] == 'C': x_base = x_base.to_celsius(copy=False)
+    else:
+        if not check_xarray(x_base): exception_xarray()
     if 'annual_mean' in x.attrs: x_base = annual_mean(x_base)
     if 'seasonal_cycle' in x.attrs: x_base = seasonal_cycle(x_base)
     if 'global_mean' in x.attrs: x_base = global_mean(x_base)
     if 'rms' in x.attrs: x_base = rms(x_base)
     if copy: x = x.copy()
-    x.attrs['anomalies'] = 'Anomalies'
-    if check_xarray(x,'Dataset'):
-        for var in x: x._variables[var].attrs['anomalies'] = 'Anomalies'
-        varnames=[v for v in x]
-        if check_xarray(x_base,'DataArray'):
-            basename = x_base.name
-            if basename not in varnames:
-                raise Exception('Variable name mismatch. Impossible to perform'\
-                                ' anomalies. \nThere is no "{}" variable to be'\
-                                ' subtracted from.'.format(basename))
-            else:
-                return DataArray(xr.apply_ufunc(lambda a,b: (a-b), x[basename], x_base,keep_attrs=True))
-        else:
-            basenames = [v for v in x_base]
-            variables = list(set(varnames).intersection(set(basenames)))
-            return Dataset(xr.apply_ufunc(lambda a,b: (a-b), x[variables], x_base[variables],keep_attrs=True),attrs=x.attrs)
-    else:
-        varname = x.name
-        if check_xarray(x_base,'DataArray'):
-            basename = x_base.name
-            if basename != varname:
-                raise Exception('Variable name mismatch. Impossible to perform'\
-                                ' anomalies. \nCannot subtract "{}" from "{}".'.format(basename,varname))
-            else:
-                return DataArray(xr.apply_ufunc(lambda a,b: (a-b), x, x_base,keep_attrs=True))
-        else:
-            basenames = [v for v in x_base]
-            if varname not in basenames:
-                raise Exception('Variable name mismatch. Impossible to perform'\
-                                ' anomalies. \nThere is no "{}" variable to'\
-                                ' subtract.'.format(varname))
-            else:
-                return DataArray(xr.apply_ufunc(lambda a,b: (a-b), x, x_base[varname],keep_attrs=True))
+    if update_attrs:
+        x.attrs['anomalies'] = 'Anomalies'
+        if check_xarray(x,'Dataset'):
+            for var in x: x._variables[var].attrs['anomalies'] = 'Anomalies'
+    _check_units(x,x_base)
+    return x-x_base
 
 def to_Robinson_cartesian(lat,lon,lon_center = 0):
     '''
@@ -1513,13 +1824,14 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
       If latitude is not provided, the default GREB latitude is used
       (see constants.lat() function).
 
-    value : float or callable
+    value : DataArray, nd.array or callable
       Cloud value to be assigned to the dimensions specified in time, latitude
-      and longitude.
+      and longitude. If no dimension is specified, it needs to be the exact matrix
+      for cloud values.
       If callable, equals the function to be applied element-wise to the
       "cloud_base" (e.g. "lambda x: x*1.1" means cloud_base scaled by 1.1).
 
-    cloud_base : np.ndarray or str
+    cloud_base : xarray.DataArray, np.ndarray or str
       Array of the cloud to be used as a reference for the creation of the
       new matrix or full path to the file ('.bin' and '.ctl' files).
 
@@ -1635,18 +1947,23 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
             data=data_from_binary(cloud_base)['cloud']
         elif isinstance(cloud_base,np.ndarray):
             data = cloud_base
+        elif isinstance(cloud_base,xr.DataArray):
+            data = cloud_base.values
         else:
-            raise Exception('"cloud_base" must be a valid .ctl or .bin file or a numpy.ndarray matrix of the cloud data')
+            raise Exception('"cloud_base" must be a xrray.DataArray or numpy.ndarray'+
+                            'matrix of the cloud data, or a valid path to the cloud file.')
         data = constants.to_shape_for_bin(data)
     else:
         data = np.zeros((dt,dy,dx))
     # Change values
     if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value
+    if isinstance(value,xr.DataArray):
+        data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value.values
     elif callable(value):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value(data[ind_t[:,None,None],ind_lat[:,None],ind_lon])
     else:
-        raise Exception('"value" must be a number, numpy.ndarray or function to apply to the "cloud_base" (e.g. "lambda x: x*1.1")')
+        raise Exception('"value" must be a number, numpy.ndarray, xarray.DataArray or function to apply to the "cloud_base" (e.g. "lambda x: x*1.1")')
     # Correct value above 1 or below 0
     data=np.where(data<=1,data,1)
     data=np.where(data>=0,data,0)
@@ -1803,9 +2120,11 @@ def data_from_binary(filename,parse=False,time_group=None):
         Set to True if you want the output to be parsed with the custom
         "parse_greb_var" function, otherwise set to False (default).
     time_group : str
-        Time grouping method to be chosen between: 'month','year','season'.
-        If chosen, the retrieved data belonging to the same time period will be
+        Time grouping method to be chosen between: '12h','day','month','year','season'.
+        If chosen, the retrieved data belonging to the same time_group will be
         averaged.
+        If "time_group" is smaller than the data time-resolution, a spline
+        interpolation is performed.
 
     Returns
     ----------
@@ -1816,18 +2135,16 @@ def data_from_binary(filename,parse=False,time_group=None):
     '''
 
     # CHECK FLAGS
-    if time_group not in ['month','year','season',None]:
-        raise Exception('time_group must be one of the following:\n"day","month","year"')
+    if time_group not in ['12h','day','month','year','season',None]:
+        raise Exception('time_group must be one of the following:\n'+
+                        '"12h","day","month","year","season".')
     # If flag is not "raw" use _data_from_binary (more precise)
     def _data_from_binary(filename,parse=None,time_group=None):
     # 2nd version, slower but precise on time corrections
-        data = from_binary(filename,parse=parse)
-        if time_group is not None:
-            data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).squeeze()
+        data = from_binary(filename,parse=parse,time_group=time_group)
         keys = [d for d in data]
         vals = [data[k].values for k in keys]
         dic = dict(zip(keys,vals))
-        os.remove(filename+'.nc')
         return dic
 
     if parse or time_group is not None:
@@ -2000,6 +2317,32 @@ def plot_clouds_and_tsurf(*cloudfiles, years_of_simulation=50, coords = None,
 
         axP = plt.gcf().axes[1]
         axP.set_position([0.265, 0.95, 0.5, 0.15])
+
+def _check_units(x1,x2):
+    '''
+    Check units matching between Datarrays or Datasets
+    '''
+
+    if not np.all([check_xarray(x1),check_xarray(x2)]):
+        raise Exception('Input arrays must be xarray.DataArray or xarray.Dataset')
+    exc = 'Units don''t match!'
+    if check_xarray(x1,'DataArray'):
+        if check_xarray(x2,'DataArray'):
+            if x1.attrs['units'] != x2.attrs['units']:
+                raise Exception(exc)
+        else:
+            if x1.attrs['units'] != x2[x1.name].attrs['units']:
+                raise Exception(exc)
+    else:
+        if check_xarray(x2,'DataArray'):
+            for var in x1:
+                if var == x2.name:
+                    if x1[var].attrs['units'] != x2.attrs['units']:
+                        raise Exception(exc)
+        else:
+            for var in set([d for d in x1])&set([d for d in x2]):
+                if x1[var].attrs['units'] != x2[var].attrs['units']:
+                    raise Exception(exc)
 
 # ============================================================================ #
 # ============================================================================ #

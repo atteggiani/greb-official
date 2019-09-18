@@ -1,6 +1,4 @@
-# LIBRARIES
-from greb_climatevar import *
-ignore_warnings()
+from myfuncs import *
 
 def to_regional_mean(data,lats,lons):
     ind_st=to_greb_indexes(lats[0],lons[0])
@@ -12,13 +10,6 @@ def mean_20s(data):
 
 def mean_70s(data):
     return data[70:80,...].mean(axis=0)
-
-def to_celsius(t):
-    if isinstance(t,iris.cube.Cube): metadata = t.metadata
-    tc = t-273.15
-    if isinstance(t,iris.cube.Cube): tc.metadata = metadata
-    return tc
-
 
 def plot_tsurf(tsurf,labels):
     from matplotlib.ticker import AutoMinorLocator
@@ -91,30 +82,21 @@ def scatter_plot(tsurf,precip,areaspec,filespec):
     plt.gca().xaxis.set_minor_locator(AutoMinorLocator())
     plt.gca().yaxis.set_label_coords(0.4, 1.03)
 
-dsk='/Users/dmar0022/Desktop/'
-file_control = constants.control_def_file()
-
+outpath='/Users/dmar0022/Desktop/'
 filespec=np.arange(0.977,0.982+0.0002,0.0002)
 files = [constants.output_folder()+'/scenario.exp-931.geoeng.sw.artificial.frominput_x{:g}_80yrs'.format(f) for f in filespec]
 files.insert(0,constants.output_folder()+'/scenario.exp-20.2xCO2_80yrs.bin')
 namespec=['NO-SRM']+['{:g}'.format(f) for f in filespec]
-
-areaspec=['india','china','australia','central_africa','papua_new_guinea','russia']
-india=[(8,33),(69,85)]
-china=[(24,45),(80,120)]
-australia=[(-38,-12),(114,153)]
-central_africa=[(-17,15),(6,35)]
-papua_new_guinea=[(-9,1),(130,155)]
-russia=[(55,70),(50,150)]
+areaspec={'india':[(8,33),(69,85)],'china':[(24,45),(80,120)],
+              'australia':[(-38,-12),(114,153)],'central_africa':[(-17,15),(6,35)],
+              'papua_new_guinea':[(-9,1),(130,155)],'russia':[(55,70),(50,150)]}
 
 # 'TSURF'
-ts_ctl = cube_from_binary(file_control)
-ts_ctl = to_celsius(ts_ctl[[v.var_name for v in ts_ctl].index('tsurf')])
-ts_ctl_gm = global_mean(ts_ctl).data.data.mean()
+ts_ctl = from_binary(constants.control_def_file(),time_group='month').tsurf.to_celsius(copy=False)
+ts_ctl_gm = ts_ctl.global_mean().mean('time').assign_coords(time=0)
 
-ind = [v.var_name for v in cube_from_binary(files[0])].index('tsurf')
-ts = [to_celsius(cube_from_binary(f)[ind]) for f in files]
-ts_gm = [np.insert(global_mean(d).data.data.reshape(80,12).mean(axis=-1),0,ts_ctl_gm) for d in ts]
+ts = [from_binary(f,time_group='month').tsurf.to_celsius(copy=False) for f in files]
+ts_gm = [DataArray(xr.concat([ts_ctl_gm,t.global_mean()],dim='time')) for t in ts]
 
 ts_high_srm=sum(ts[1:6])/5
 ts_low_srm=sum(ts[-6:-1])/5
@@ -170,14 +152,14 @@ for reg in areaspec:
 
 #PLOT TSURF
 plot_tsurf(ts_gm,namespec)
-plt.savefig(dsk+'tsurf.png', bbox_inches='tight',dpi=400)
+plt.savefig(outpath+'tsurf.png', bbox_inches='tight',dpi=400)
 #PLOT PRECIP
 plot_precip(p_gm,namespec)
-plt.savefig(dsk+'precip.png', bbox_inches='tight',dpi=400)
+plt.savefig(outpath+'precip.png', bbox_inches='tight',dpi=400)
 #SCATTER PLOT TSURF/PRECIP
 scatter_plot(ts_anom_jja_70s_all,p_anom_jja_70s_all,
          areaspec,namespec[1:])
-plt.savefig(dsk+'std.png', bbox_inches='tight',dpi=300)
+plt.savefig(outpath+'std.png', bbox_inches='tight',dpi=300)
 
 #PLOT MAPS LOW SRM
 lt=plot_param.from_cube(ts_low_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
@@ -185,14 +167,14 @@ lt=plot_param.from_cube(ts_low_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
                        varname='ts_low_srm')
 ts_ctl.var_name = ts_low_srm.var_name
 plt.figure()
-lt.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=dsk)
+lt.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=outpath)
 
 lp=plot_param.from_cube(p_low_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
                        cbticks=np.arange(-1,1+0.2,0.2), tit='Low SRM precip anomalies',
                        varname='p_low_srm')
 p_ctl.var_name = p_low_srm.var_name
 plt.figure()
-lp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=dsk)
+lp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=outpath)
 
 #PLOT MAPS HIGH SRM
 ht=plot_param.from_cube(ts_high_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
@@ -200,14 +182,14 @@ ht=plot_param.from_cube(ts_high_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
                        varname='ts_high_srm')
 ts_ctl.var_name = ts_high_srm.var_name
 plt.figure()
-ht.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=dsk)
+ht.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=outpath)
 
 hp=plot_param.from_cube(p_high_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
                        cbticks=np.arange(-1,1+0.2,0.2), tit='High SRM precip anomalies',
                        varname='p_high_srm')
 p_ctl.var_name = p_high_srm.var_name
 plt.figure()
-hp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=dsk)
+hp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=outpath)
 
 #PLOT MAPS BEST SRM
 bt=plot_param.from_cube(ts_best_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
@@ -216,7 +198,7 @@ bt=plot_param.from_cube(ts_best_srm,units='°C',cmaplev=np.arange(-2,2+0.1,0.1),
                        varname='ts_best_srm')
 ts_ctl.var_name = ts_best_srm.var_name
 plt.figure()
-bt.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=dsk)
+bt.to_annual_mean().to_anomalies(ts_ctl).plot(outpath=outpath)
 
 bp=plot_param.from_cube(p_best_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
                        cbticks=np.arange(-1,1+0.2,0.2),
@@ -224,4 +206,4 @@ bp=plot_param.from_cube(p_best_srm,units='mm/d',cmaplev=np.arange(-1,1+0.1,0.1),
                        varname='p_best_srm')
 p_ctl.var_name = p_best_srm.var_name
 plt.figure()
-bp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=dsk)
+bp.to_annual_mean().to_anomalies(p_ctl).plot(outpath=outpath)

@@ -1,79 +1,62 @@
 # LIBRARIES
-from greb_climatevar import * # Import self defined classes and function
-ignore_warnings()
+from myfuncs import * # Import self defined classes and function
 from matplotlib.ticker import MultipleLocator
-time = input_('monthly')
+
+r_fixed_flag = input_('_nf')
 filename_first_correction = input_(r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs',2)
-sim_years = input_(50,3)
+try: sim_years = constants.get_years_of_simulation(filename_first_correction)
+except: sim_years = None
+sim_years = input_(sim_years,3)
 
 rms_a = []
 rms_s = []
 
-filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
+filename_base = constants.control_def_file()
 name_base = os.path.split(filename_base)[1]
-outfile_base = filename_base + '.nc'
-bin2netCDF(filename_base)
-data_base = parsevar(iris.load(outfile_base))
+data_base =  from_binary(filename_base)
 
-filename_original = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2_50yrs'
-bin2netCDF(filename_original)
-data = parsevar(iris.load(filename_original+'.nc'))
-ts = data[[v.var_name for v in data].index('tsurf')]
-TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
-rms_a.append(TS.rms())
-TS=plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base)
-rms_s.append(TS.rms())
-os.remove(filename_original+'.nc')
+filename_original = constants.scenario_2xCO2()
+data = from_binary(filename_original)
+rms_a.append(data.annual_mean().anomalies(data_base).rms().tsurf.values)
+rms_s.append(data.seasonal_cycle().anomalies(data_base).rms().tsurf.values)
 
-bin2netCDF(filename_first_correction)
-data = parsevar(iris.load(filename_first_correction+'.nc'))
-ts = data[[v.var_name for v in data].index('tsurf')]
-TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
-rms_a.append(TS.rms())
-TS=plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base)
-rms_s.append(TS.rms())
-os.remove(filename_first_correction+'.nc')
+data = from_binary(filename_first_correction)
+rms_a.append(data.annual_mean().anomalies(data_base).rms().tsurf.values)
+rms_s.append(data.seasonal_cycle().anomalies(data_base).rms().tsurf.values)
+
+# Setting figures output directories
+outdir=os.path.join(constants.figures_folder(),
+                    'scenario.exp-930.geoeng.cld.artificial.iteration_monthly{}_{}yrs'.format(r_fixed_flag,sim_years))
+
 
 niter = 1
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}_{}yrs'.format(str(niter),time,sim_years)
+filename = os.path.join(constants.output_folder(),
+                        'scenario.exp-930.geoeng.cld.artificial.iter{}_monthly{}_{}yrs'.format(niter,r_fixed_flag,sim_years))
 while os.path.isfile(rmext(filename)+'.bin'):
-    # Read scenario and base file
-    filename_art_cloud=get_art_cloud_filename(filename)
-    name = os.path.split(filename)[1]
-    outfile = filename + '.nc'
-    name_art_cloud = os.path.split(filename_art_cloud)[1]
-
     # Setting figures output directories
-    outdir=os.path.join('/Users/dmar0022/university/phd/greb-official/figures',name)
-    outdir_diff=os.path.join(outdir,'diff_'+name_base)
-
+    outdir_abs=os.path.join(outdir,'iter{}'.format(niter),'absolute')
+    outdir_diff=os.path.join(outdir,'iter{}'.format(niter),'diff_'+name_base)
     # Creating figures output directories
+    os.makedirs(outdir_abs,exist_ok=True)
     os.makedirs(outdir_diff,exist_ok=True)
 
-    # Converting bin file to netCDF
-    bin2netCDF(filename)
+    # Import data
+    data = from_binary(filename)
 
-    # Importing the data cube
-    data = parsevar(iris.load(outfile))
-
-    ts = data[[v.var_name for v in data].index('tsurf')]
+    print('Plotting Iter. {}...'.format(niter))
     # ANNUAL MEAN
-    TS=plot_param.from_cube(ts).to_annual_mean().to_anomalies(data_base)
-    rms_a.append(TS.rms())
-    # # plot annual mean
-    plt.figure()
-    TS.assign_var().plot(outpath=outdir_diff)
+    rms_a.append(data.annual_mean().anomalies(data_base).rms().tsurf.values)
+    data[['tsurf','precip']].annual_mean().plotall(outpath=outdir_abs)
+    data[['tsurf','precip']].annual_mean().anomalies(data_base).plotall(outpath=outdir_diff)
     # SEASONAL CYCLE
-    TS=plot_param.from_cube(ts).to_seasonal_cycle().to_anomalies(data_base)
-    rms_s.append(TS.rms())
-    # # plot seasonal cycle
-    plt.figure()
-    TS.assign_var().plot(outpath=outdir_diff)
-    os.remove(outfile)
-    niter += 1
-    filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.cld.artificial.iter{}_{}_{}yrs'.format(str(niter),time,sim_years)
-os.remove(outfile_base)
+    rms_s.append(data.seasonal_cycle().anomalies(data_base).rms().tsurf.values)
+    data[['tsurf','precip']].seasonal_cycle().plotall(outpath=outdir_abs)
+    data[['tsurf','precip']].seasonal_cycle().anomalies(data_base).plotall(outpath=outdir_diff)
 
+    niter += 1
+    filename = os.path.join(constants.output_folder(),
+                            'scenario.exp-930.geoeng.cld.artificial.iter{}_monthly{}_{}yrs'.format(niter,r_fixed_flag,sim_years))
+print('Plotting rms...')
 # plot rms_a
 plt.figure()
 plt.plot(np.arange(1,niter+2),rms_a,linewidth=1.5,color='Red')
@@ -82,10 +65,11 @@ plt.xlabel('N. Iteration')
 plt.ylabel('rms')
 plt.xlim([1,niter+1])
 plt.xticks(ticks=np.arange(1,niter+2),labels=['O','O*']+np.arange(1,niter).tolist())
-plt.ylim(ymin=0)
+plt.ylim(bottom=0)
 plt.gca().yaxis.set_minor_locator(MultipleLocator(0.1))
 plt.grid(which='both')
-plt.savefig(outdir+'/improvement_amean_'+name+'.png')
+plt.savefig(outdir+'/improvement_amean.png')
+plt.close()
 
 # plot rms_s
 plt.figure()
@@ -95,7 +79,10 @@ plt.xlabel('N. Iteration')
 plt.ylabel('rms')
 plt.xlim([1,niter+1])
 plt.xticks(ticks=np.arange(1,niter+2),labels=['O','O*']+np.arange(1,niter).tolist())
-plt.ylim(ymin=0)
+plt.ylim(bottom=0)
 plt.gca().yaxis.set_minor_locator(MultipleLocator(0.1))
 plt.grid(which='both')
-plt.savefig(outdir+'/improvement_seascyc_'+name+'.png')
+plt.savefig(outdir+'/improvement_seascyc.png')
+plt.close()
+
+print('Done!!!')

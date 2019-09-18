@@ -198,7 +198,7 @@ endvars
 EOF
 fi
 
-if [ $analyze -eq 1 ]; then
+if [[ $analyze -eq 1 ]]; then
     # Greb model output Analysys and plots
     python ../plot_contours.py ../output/scenario.${FILENAME}
 fi
