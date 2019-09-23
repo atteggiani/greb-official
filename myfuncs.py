@@ -377,7 +377,7 @@ class DataArray(xr.DataArray):
         return DataArray(other%xr.DataArray(self),attrs=attrs)
 
     def plotvar(self, projection = None, levels = None, cmap = None,
-                outpath = None, statistics=True, title = None,
+                outpath = None, name= None, statistics=True, title = None,
                 cbar_kwargs = None,
                 coast_kwargs = None,
                 land_kwargs = None,
@@ -414,7 +414,7 @@ class DataArray(xr.DataArray):
         if projection is None: projection = ccrs.Robinson()
         if cmap is None: cmap = self.get_param()['cmap']
         if title is None: title = _get_var(self)[0]
-        name = _get_var(self)[1]
+        name = _get_var(self)[1] if name is None else '_'.join([name,_get_var(self)[1]])    
         units = _get_var(self)[2]
         if levels is None: levels = self.get_param()['levels']
         cbticks = self.get_param()['cbticks']
@@ -474,6 +474,10 @@ class DataArray(xr.DataArray):
         keys=self.attrs.keys()
         name=self.name
 
+        levels = None
+        cbticks = None
+        extend = None
+        cmap = None
         # TATMOS
         if name == 'tatmos':
             cmap = cm.RdBu_r
@@ -617,12 +621,6 @@ class DataArray(xr.DataArray):
                     cbticks = np.arange(-1,1+0.2,0.2)
         # SOLAR
         # not yet implemented
-
-        else:
-            levels = None
-            cbticks = None
-            extend = None
-            cmap = None
         return {'levels':levels,'cbticks':cbticks,'extend':extend,'cmap':cmap}
 
     def to_contiguous_lon(self):
@@ -1355,7 +1353,7 @@ def rms(x,copy=True,update_attrs=True):
     func=DataArray
     if check_xarray(x,'Dataset'):
         if update_attrs:
-            for var in x: x[var].attrs['rms'] = 'Computed root mean square'
+            for var in x: x._variables[var].attrs['rms'] = 'Computed root mean square'
         func=Dataset
     attrs=x.attrs
     gm=global_mean(x**2,update_attrs=False)
@@ -1514,14 +1512,18 @@ def anomalies(x,x_base=None,copy=True,update_attrs=True):
 
     def fun(y):
         attrs = y.attrs
-        newy=np.repeat(y,(x.time.shape[0])/12,axis=0).assign_coords(time=x.time.values)
-        newy.attrs = attrs
-        return newy
+        dims = y.dims
+        coords = dict(y.coords)
+        coords['time'] = x.coords['time'].values
+        return xr.DataArray(np.tile(y,(int(x.time.shape[0]/12),1,1)),
+                     coords=coords, dims=dims, attrs=attrs)
 
     if not check_xarray(x): exception_xarray()
     if x_base is None:
         if 'grouped_by' in x.attrs:
             x_base = from_binary(constants.control_def_file(),x.attrs['grouped_by'])
+        elif any(['annual_mean' in x.attrs,'seasonal_cycle' in x.attrs,'global_mean' in x.attrs,'rms' in x.attrs]):
+            x_base = from_binary(constants.control_def_file())
         else:
             x_base = from_binary(constants.control_def_file()).apply(fun,keep_attrs=True)
         # Change to Celsius if needed
@@ -1545,7 +1547,7 @@ def anomalies(x,x_base=None,copy=True,update_attrs=True):
         x.attrs['anomalies'] = 'Anomalies'
         if check_xarray(x,'Dataset'):
             for var in x: x._variables[var].attrs['anomalies'] = 'Anomalies'
-    _check_units(x,x_base)
+    _check(x,x_base)
     return x-x_base
 
 def to_Robinson_cartesian(lat,lon,lon_center = 0):
@@ -2318,14 +2320,15 @@ def plot_clouds_and_tsurf(*cloudfiles, years_of_simulation=50, coords = None,
         axP = plt.gcf().axes[1]
         axP.set_position([0.265, 0.95, 0.5, 0.15])
 
-def _check_units(x1,x2):
+def _check(x1,x2):
     '''
-    Check units matching between Datarrays or Datasets
+    Check units and coords matching between Datarrays or Datasets
     '''
 
     if not np.all([check_xarray(x1),check_xarray(x2)]):
         raise Exception('Input arrays must be xarray.DataArray or xarray.Dataset')
-    exc = 'Units don''t match!'
+    # CHECK UNITS
+    exc = "Units don't match!"
     if check_xarray(x1,'DataArray'):
         if check_xarray(x2,'DataArray'):
             if x1.attrs['units'] != x2.attrs['units']:
@@ -2343,7 +2346,9 @@ def _check_units(x1,x2):
             for var in set([d for d in x1])&set([d for d in x2]):
                 if x1[var].attrs['units'] != x2[var].attrs['units']:
                     raise Exception(exc)
-
+    # CHECK COORDS
+    if not x1.coords.to_dataset().equals(x2.coords.to_dataset()):
+        raise Exception("Coordinates don't match!")
 # ============================================================================ #
 # ============================================================================ #
 # ============================================================================ #
