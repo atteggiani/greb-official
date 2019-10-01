@@ -244,10 +244,9 @@ class Dataset(xr.Dataset):
         else:
             return Dataset(self._copy_listed(np.asarray(key)),attrs=self.attrs)
 
-    def plotall(self, projection = None, levels = None, cmap = None,
-                outpath = None, statistics=True, title = None,
-                cbar_kwargs = None, coast_kwargs = None, land_kwargs = None,
-                save_kwargs = None):
+    def plotall(self, outpath = None, projection = None, levels = None,
+                cmap = None, statistics=True, title = None, cbar_kwargs = None,
+                coast_kwargs = None, land_kwargs = None, save_kwargs = None):
         '''
         Plots all the variables of the Dataset using DataArray.plotvar function.
 
@@ -313,6 +312,8 @@ class Dataset(xr.Dataset):
         if copy: self = self.copy()
         return self.apply(lambda x: func(x),keep_attrs=True)
 
+    def group_by(self,time_group,copy=True,update_attrs=True):
+        return group_by(self,time_group,copy=copy,update_attrs=update_attrs)
 
 class DataArray(xr.DataArray):
     '''
@@ -414,7 +415,7 @@ class DataArray(xr.DataArray):
         if projection is None: projection = ccrs.Robinson()
         if cmap is None: cmap = self.get_param()['cmap']
         if title is None: title = _get_var(self)[0]
-        name = _get_var(self)[1] if name is None else '_'.join([name,_get_var(self)[1]])    
+        name = _get_var(self)[1] if name is None else '_'.join([name,_get_var(self)[1]])
         units = _get_var(self)[2]
         if levels is None: levels = self.get_param()['levels']
         cbticks = self.get_param()['cbticks']
@@ -445,7 +446,7 @@ class DataArray(xr.DataArray):
             save_kwargs = {'dpi':300, 'bbox_inches':'tight'}
 
         plt.axes(projection=projection)
-        self.to_contiguous_lon().plot.contourf(transform=ccrs.PlateCarree(),
+        self._to_contiguous_lon().plot.contourf(transform=ccrs.PlateCarree(),
         levels = levels,
         extend= extend,
         cmap = cmap,
@@ -623,7 +624,7 @@ class DataArray(xr.DataArray):
         # not yet implemented
         return {'levels':levels,'cbticks':cbticks,'extend':extend,'cmap':cmap}
 
-    def to_contiguous_lon(self):
+    def _to_contiguous_lon(self):
         '''
         Function to close the longitude coord (for plotting)
 
@@ -661,6 +662,9 @@ class DataArray(xr.DataArray):
         else:
             raise Exception('Cannot convert to Celsius.\n{} '.format(self.name)+
                             'does not have temperature units.')
+
+    def group_by(self,time_group,copy=True,update_attrs=True):
+        return group_by(self,time_group,copy=copy,update_attrs=update_attrs)
 
 class constants:
     '''
@@ -1086,29 +1090,86 @@ def from_binary(filename,time_group=None,parse=True):
     bin2netCDF(filename)
     data=xr.open_dataset(filename+'.nc')
     os.remove(filename+'.nc')
-    attrs = data.attrs
     if parse: data = parse_greb_var(data)
     t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().total_seconds()/(3600*12)
     if t_res > 62:
         raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
                         'Could not understand the time resolution of the data.')
-
     if time_group is not None:
+        return data.group_by(time_group,copy=False)
+    else:
+        return data
+    #     attrs['grouped_by'] = time_group
+    #     for var in data: data._variables[var].attrs['grouped_by'] = time_group
+    #     interp=False
+    #     if time_group == '12h':
+    #         nt=730
+    #         time_group = 'month'
+    #         interp=True
+    #     elif time_group == 'day':
+    #         nt=365
+    #         time_group = 'dayofyear'
+    #         interp=True
+    #     data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).rename({'{}'.format(time_group):'time'})
+    #     if interp:
+    #         data = data.interp(time=np.linspace(data.time[0]-0.5,data.time[-1]+0.5,nt),method='cubic',kwargs={'fill_value':'extrapolate'}).assign_coords(time=constants.t()[::int(730/nt)])
+    # return Dataset(data,attrs=attrs)
+
+
+def group_by(x,time_group,copy=True,update_attrs=True):
+    """
+    Group an xarray.Dataset object according to a specific time group and compute
+    the mean over the values.
+
+    Arguments
+    ----------
+    x : xarray.DataArray or xarray.Dataset
+        Array or Dataset to group
+    time_group : str
+        Time grouping method to be chosen between: '12h','day','month','year','season'.
+        If chosen, the retrieved data belonging to the same time_group will be
+        averaged.
+        If "time_group" is smaller than the data time-resolution, a spline
+        interpolation is performed.
+
+    Parameters
+    ----------
+    copy : Bool
+       set to True (default) if you want to return a copy of the argument in
+       input; set to False if you want to overwrite the input argument.
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that it was parsed with the "parse_var" function.
+
+    Returns
+    ----------
+    xarray.DataArray or xarray.Dataset
+         Grouped Array or Dataset.
+
+    """
+
+    if copy: x = x.copy()
+    attrs = x.attrs
+    if 'grouped_by' in attrs:
+        raise Exception('Cannot group an Array which has already been grouped.')
+    if update_attrs:
         attrs['grouped_by'] = time_group
-        for var in data: data._variables[var].attrs['grouped_by'] = time_group
-        interp=False
-        if time_group == '12h':
-            nt=730
-            time_group = 'month'
-            interp=True
-        elif time_group == 'day':
-            nt=365
-            time_group = 'dayofyear'
-            interp=True
-        data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).rename({'{}'.format(time_group):'time'})
-        if interp:
-            data = data.interp(time=np.linspace(data.time[0]-0.5,data.time[-1]+0.5,nt),method='cubic',kwargs={'fill_value':'extrapolate'}).assign_coords(time=constants.t()[::int(730/nt)])
-    return Dataset(data,attrs=attrs)
+        if check_xarray(x,'Dataset'):
+            for var in x: x._variables[var].attrs['grouped_by'] = time_group
+    interp=False
+    if time_group == '12h':
+        nt=730
+        time_group = 'month'
+        interp=True
+    elif time_group == 'day':
+        nt=365
+        time_group = 'dayofyear'
+        interp=True
+    x = x.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).rename({'{}'.format(time_group):'time'})
+    if interp:
+        x = x.interp(time=np.linspace(x.time[0]-0.5,x.time[-1]+0.5,nt),method='cubic',kwargs={'fill_value':'extrapolate'}).assign_coords(time=constants.t()[::int(730/nt)])
+    f = DataArray if check_xarray(x,'DataArray') else Dataset
+    return f(x,attrs=attrs)
 
 def rmext(filename):
     """
@@ -1474,12 +1535,16 @@ def seasonal_cycle(x,copy=True,update_attrs=True):
     if 'rms' in x.attrs:
         raise Exception('Cannot perform seasonal cycle on a variable on which rms has already been performed')
     if copy: x = x.copy()
+    f=DataArray
     if update_attrs:
         x.attrs['seasonal_cycle'] = 'Computed seasonal cycle'
         if check_xarray(x,'Dataset'):
             for var in x: x._variables[var].attrs['seasonal_cycle'] = 'Computed seasonal cycle'
-    x_seas=x.groupby('time.season').mean(dim='time',keep_attrs=True).squeeze()
-    return (x_seas.sel(season='DJF')-x_seas.sel(season='JJA'))/2
+            f=Dataset
+    attrs=x.attrs
+    x_seas=f(x.group_by('season'),attrs=attrs)
+    x_seas=(x_seas.sel(time='DJF')-x_seas.sel(time='JJA'))/2
+    return x_seas.drop('time') if 'time' in x_seas.coords else x_seas
 
 def anomalies(x,x_base=None,copy=True,update_attrs=True):
     '''
@@ -1520,12 +1585,21 @@ def anomalies(x,x_base=None,copy=True,update_attrs=True):
 
     if not check_xarray(x): exception_xarray()
     if x_base is None:
-        if 'grouped_by' in x.attrs:
-            x_base = from_binary(constants.control_def_file(),x.attrs['grouped_by'])
-        elif any(['annual_mean' in x.attrs,'seasonal_cycle' in x.attrs,'global_mean' in x.attrs,'rms' in x.attrs]):
-            x_base = from_binary(constants.control_def_file())
+        if (check_xarray(x,'DataArray') and x.name == 'cloud') or \
+            (check_xarray(x,'Dataset') and 'cloud' in list(x.data_vars.keys())):
+            ctrfile=constants.cloud_def_file()
+        elif (check_xarray(x,'DataArray') and x.name == 'solar') or \
+            (check_xarray(x,'Dataset') and 'solar' in list(x.data_vars.keys())):
+            ctrfile=constants.solar_def_file()
         else:
-            x_base = from_binary(constants.control_def_file()).apply(fun,keep_attrs=True)
+            ctrfile=constants.control_def_file()
+        if 'grouped_by' in x.attrs:
+            x_base = from_binary(ctrfile,x.attrs['grouped_by'])
+        elif (any(['annual_mean' in x.attrs,'seasonal_cycle' in x.attrs,'global_mean' in x.attrs,'rms' in x.attrs])) or \
+            (ctrfile == constants.cloud_def_file()) or (ctrfile == constants.solar_def_file()):
+            x_base = from_binary(ctrfile)
+        else:
+            x_base = from_binary(ctrfile).apply(fun,keep_attrs=True)
         # Change to Celsius if needed
         temp = ['tsurf','tocean','tatmos']
         if check_xarray(x,'DataArray'):
@@ -1534,8 +1608,8 @@ def anomalies(x,x_base=None,copy=True,update_attrs=True):
         else:
             vars=[d for d in x]
             for t in temp:
-                if t in vars:
-                    if x[t].attrs['units'] == 'C': x_base = x_base.to_celsius(copy=False)
+                if (t in vars) and (x[t].attrs['units'] == 'C'):
+                    x_base = x_base.to_celsius(copy=False)
     else:
         if not check_xarray(x_base): exception_xarray()
     if 'annual_mean' in x.attrs: x_base = annual_mean(x_base)

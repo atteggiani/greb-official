@@ -20,9 +20,16 @@ t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_
 t_new_r="$t_new"
 t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2_50yrs"}
 t_iter="$t_new"
-sim_years=${t_new##*_}
+sim_years=${t_new##*_};sim_years=${sim_years%.*}
+
 # Initialize iterations
-niter=1
+if [[ $t_new_r == *"iter"* ]]; then
+    niter=${t_new_r##*iter};niter=$((${niter%%_*}+1))
+else
+    niter=1
+fi
+tot_iter=$(($tot_iter + $niter - 1))
+
 while (( $niter <= $tot_iter )); do
     echo -e "\nIter. ${niter}/${tot_iter} -- Creating new cloud matrix..."
     python cloud_iteration.py $niter $t_new $t_new_r $t_old_r $flag

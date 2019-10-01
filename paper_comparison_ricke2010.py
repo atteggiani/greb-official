@@ -1,5 +1,4 @@
 from myfuncs import *
-from greb_climatevar import *
 
 def plot_tsurf(tsurf,labels):
     from matplotlib.ticker import AutoMinorLocator
@@ -81,49 +80,12 @@ areaspec={'india':[(8,33),(69,85)],
           'papua_new_guinea':[(-9,1),(130,155)],
           'russia':[(55,70),(50,150)]}
 
-# 'TSURF'
-ts_ctl = from_binary(constants.control_def_file(),time_group='month').tsurf.to_celsius(copy=False)
-ts_ctl_gm = ts_ctl.global_mean().annual_mean().assign_coords(time=0)
-
-ts = [from_binary(f,time_group='month').tsurf.to_celsius(copy=False) for f in files]
-ts_gm = [DataArray(xr.concat([ts_ctl_gm,t.global_mean()],dim='time')) for t in ts]
-
-ts_high_srm=sum(ts[1:6])/5
-ts_low_srm=sum(ts[-6:-1])/5
-
-ind_best = np.argmin([np.abs((t-ts_ctl_gm).mean()) for t in ts_gm])
-alpha_best = round(filespec[ind_best],4)
-ts_best_srm = ts[ind_best]
-
-ts_anom_jja_70s = [from_binary(f).tsurf.anomalies().isel(time=slice(70*12,80*12)).groupby('time.season').mean('time',keep_attrs=True).sel(season='JJA') for f in files[1:]]
-
-# //==========================================================================//
-
-# 'PRECIP'
-p_ctl = from_binary(constants.control_def_file(),time_group='month').precip
-p_ctl_gm = p_ctl.global_mean().annual_mean().assign_coords(time=0)
-
-p = [from_binary(f,time_group='month').precip for f in files]
-p_gm = [DataArray(xr.concat([p_ctl_gm,t.global_mean()],dim='time')) for t in p]
-
-p_high_srm=sum(p[1:6])/5
-p_low_srm=sum(p[-6:-1])/5
-
-p_best_srm = p[ind_best]
-
-p_anom_jja_70s = [from_binary(f).precip.anomalies().isel(time=slice(70*12,80*12)).groupby('time.season').mean('time',keep_attrs=True).sel(season='JJA') for f in files[1:]]
-
-# //==========================================================================//
-
 data = [from_binary(f).to_celsius()[['precip','tsurf']] for f in files]
 
 # Annual global mean
 ctl_gm = from_binary(constants.control_def_file()).global_mean().annual_mean().assign_coords(time=0).to_celsius()[['precip','tsurf']]
-_gm = [from_binary(f,'year').to_celsius()[['precip','tsurf']].global_mean() for f in files]
+_gm = [d.group_by('year').global_mean() for d in data]
 gm = [Dataset(xr.concat([d,ctl_gm],dim='time',positions=[list(np.arange(1,d.dims['time']+1))+[0]]),attrs=d.attrs) for d in _gm]
-for d in gm:
-    for var in d:
-        d._variables[var].attrs['grouped_by'] = 'year'
 
 high_srm=(sum(data[1:6])/5).annual_mean()
 low_srm=(sum(data[-6:-1])/5).annual_mean()
@@ -132,7 +94,7 @@ ind_best=np.argmin(np.abs([d.global_mean().annual_mean().anomalies().tsurf.value
 alpha_best = round(filespec[ind_best],4)
 best_srm = data[ind_best].annual_mean()
 
-anom_jja_70s = [Dataset(d.anomalies().isel(time=slice(70*12,80*12)).groupby('time.season').mean('time',keep_attrs=True).sel(season='JJA'),attrs=d.attrs) for d in data[1:]]
+anom_jja_70s = [d.anomalies().isel(time=slice(70*12,80*12)).group_by('season').sel(time='JJA') for d in data[1:]]
 
 #PLOT TSURF
 plot_tsurf([g.tsurf for g in gm],namespec)
@@ -142,7 +104,7 @@ plot_precip([g.precip for g in gm],namespec)
 plt.savefig(outpath+'precip.png', bbox_inches='tight',dpi=400)
 #SCATTER PLOT TSURF/PRECIP
 scatter_plot(anom_jja_70s,areaspec,namespec[1:])
-plt.savefig(outpath+'std.png', bbox_inches='tight',dpi=300)
+plt.savefig(outpath+'std.png', bbox_inches='tight',dpi=400)
 
 #PLOT MAPS LOW SRM
 low_srm.tsurf.anomalies().plotvar(name='low_srm',outpath=outpath)
