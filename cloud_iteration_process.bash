@@ -1,22 +1,40 @@
 #!/bin/bash
-# Total number of iterations
+# Author: Davide Marchegiani
+PROGNAME=$0
 
-tot_iter="$1"
-flag="$2" #default is "NOT_FIXED" (or "nf"), can be set to "FIXED" (or "f")
-t_new="$3"
-t_old_r="$4"
+usage() {
+  cat << EOF
+Usage: $PROGNAME [-i <tot_iter>] [-n <t_new>] [-f] ...
+
+Possible keys:
+-O -> change clouds only over oceans
+-f -> set a FIXED sensitivity coefficient
+-i -> total number of iterations
+-n -> new tsurf pattern
+-o -> old tsurf pattern
+
+
+EOF
+  exit 1
+}
+
+while getopts hOfi:n:o: opt; do
+  case $opt in
+    (O) ocean_flag="_ocean";;
+    (f) fixed_flag="_f";;
+    (i) tot_iter=$OPTARG;;
+    (n) t_new=$OPTARG;;
+    (o) t_old_r=$OPTARG;;
+    (*) usage
+  esac
+done
 
 ((${tot_iter:=5}))
-flag=${flag:="nf"}
-if [ "$flag" == "nf" ] || [ "$flag" == "not_fixed" ]
-then
-    flag="_nf"
-else
-    flag=""
-fi
-wdir="/Users/dmar0022/university/phd/greb-official"
+fixed_flag=${fixed_flag:="_nf"}
+
+wdir=$(pwd)
 # Files for 1st iteration
-t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs"}
+t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1${ocean_flag}_50yrs"}
 t_new_r="$t_new"
 t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2_50yrs"}
 t_iter="$t_new"
@@ -32,13 +50,13 @@ tot_iter=$(($tot_iter + $niter - 1))
 
 while (( $niter <= $tot_iter )); do
     echo -e "\nIter. ${niter}/${tot_iter} -- Creating new cloud matrix..."
-    python cloud_iteration.py $niter $t_new $t_new_r $t_old_r $flag
+    python cloud_iteration.py $niter $t_new $t_new_r $t_old_r $fixed_flag $ocean_flag
     pad="Iter. ${niter}/${tot_iter} "
     printf "%*s%b" ${#pad} '' "-- Run GREB\n"
-    ${wdir}/myjobscript.bash -y ${sim_years%yrs} -c "${wdir}/artificial_clouds/cld.artificial.iteration_monthly${flag}/cld.artificial.iter${niter}_monthly${flag}"
+    ${wdir}/myjobscript.bash -y ${sim_years%yrs} -c "${wdir}/artificial_clouds/cld.artificial.iteration_monthly${fixed_flag}${ocean_flag}/cld.artificial.iter${niter}_monthly${fixed_flag}${ocean_flag}"
     # Change files for next iteration
-    t_new="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}_monthly${flag}_${sim_years}"
-    if [ "$flag" == "_nf" ]
+    t_new="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}_monthly${fixed_flag}${ocean_flag}_${sim_years}"
+    if [ "$fixed_flag" == "_nf" ]
     then
         t_old_r="$t_new_r"
         t_new_r="$t_new"
@@ -46,6 +64,9 @@ while (( $niter <= $tot_iter )); do
     ((niter++))
 done
 echo -e "\nPlotting iterations...\n"
-python ${wdir}/plot_iter.py $flag $t_iter ${sim_years%yrs}
+if [[ "$ocean_flag" == "" ]];then
+    ocean_flag="-"
+fi
+python ${wdir}/plot_iter.py $fixed_flag $ocean_flag $t_iter ${sim_years%yrs}
 echo -e "DONE!!\n"
 exit

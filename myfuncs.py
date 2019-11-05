@@ -709,7 +709,8 @@ class constants:
 
     @staticmethod
     def greb_folder():
-        return r'/Users/dmar0022/university/phd/greb-official'
+        return os.path.dirname(os.path.realpath('myfuncs.py'))
+        # return r'/Users/dmar0022/university/phd/greb-official'
 
     @staticmethod
     def figures_folder():
@@ -1010,6 +1011,20 @@ class constants:
     def days_each_month():
         return np.array([31,28,31,30,31,30,31,31,30,31,30,31])
 
+    @staticmethod
+    def land_ocean_mask():
+        '''
+        A land/ocean mask built from the GREB model topography input.
+        True = Land
+        False = Ocean
+
+        '''
+        mask=from_binary(constants.input_folder()+'/global.topography.bin',parse=False).squeeze().topo
+        mask.data=np.where(mask<=0,False,True)
+        return mask
+
+
+
 def input_(def_input,argv=1):
     '''
     Function to set default inputs when running a script from Atom,
@@ -1089,32 +1104,18 @@ def from_binary(filename,time_group=None,parse=True):
     filename = rmext(filename)
     bin2netCDF(filename)
     data=xr.open_dataset(filename+'.nc')
+    attrs=data.attrs
     os.remove(filename+'.nc')
     if parse: data = parse_greb_var(data)
-    t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().total_seconds()/(3600*12)
-    if t_res > 62:
-        raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
-                        'Could not understand the time resolution of the data.')
+    if 'time' in data.coords and data.time.shape[0] > 1:
+        t_res = np.timedelta64(data.time.values[1]-data.time.values[0],'D').item().total_seconds()/(3600*12)
+        if t_res > 62:
+            raise Exception('Impossible to group data by "{}".\n'.format(time_group)+
+                            'Could not understand the time resolution of the data.')
     if time_group is not None:
         return data.group_by(time_group,copy=False)
     else:
-        return data
-    #     attrs['grouped_by'] = time_group
-    #     for var in data: data._variables[var].attrs['grouped_by'] = time_group
-    #     interp=False
-    #     if time_group == '12h':
-    #         nt=730
-    #         time_group = 'month'
-    #         interp=True
-    #     elif time_group == 'day':
-    #         nt=365
-    #         time_group = 'dayofyear'
-    #         interp=True
-    #     data = data.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).rename({'{}'.format(time_group):'time'})
-    #     if interp:
-    #         data = data.interp(time=np.linspace(data.time[0]-0.5,data.time[-1]+0.5,nt),method='cubic',kwargs={'fill_value':'extrapolate'}).assign_coords(time=constants.t()[::int(730/nt)])
-    # return Dataset(data,attrs=attrs)
-
+        return Dataset(data,attrs=attrs)
 
 def group_by(x,time_group,copy=True,update_attrs=True):
     """
@@ -1163,7 +1164,7 @@ def group_by(x,time_group,copy=True,update_attrs=True):
         interp=True
     elif time_group == 'day':
         nt=365
-        time_group = 'dayofyear'
+        time_group = 'month'
         interp=True
     x = x.groupby('time.{}'.format(time_group)).mean(dim='time',keep_attrs=True).rename({'{}'.format(time_group):'time'})
     if interp:
@@ -1900,7 +1901,7 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
       If latitude is not provided, the default GREB latitude is used
       (see constants.lat() function).
 
-    value : DataArray, nd.array or callable
+    value : DataArray, np.ndarray or callable
       Cloud value to be assigned to the dimensions specified in time, latitude
       and longitude. If no dimension is specified, it needs to be the exact matrix
       for cloud values.
@@ -2034,7 +2035,7 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     # Change values
     if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value
-    if isinstance(value,xr.DataArray):
+    elif isinstance(value,xr.DataArray):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value.values
     elif callable(value):
         data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value(data[ind_t[:,None,None],ind_lat[:,None],ind_lon])
