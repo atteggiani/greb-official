@@ -1,4 +1,5 @@
 #!/bin/bash
-# INITIALIZE INPUTS
-dir=$(pwd)
-echo "$dir"
+
+wdir=$pwd
+
+echo "$wdir"

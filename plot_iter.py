@@ -2,13 +2,9 @@
 from myfuncs import * # Import self defined classes and function
 from matplotlib.ticker import MultipleLocator
 
-r_fixed_flag = input_('_nf')
 ocean_flag = input_('',2)
-if ocean_flag == '-': ocean_flag = ''
-filename_first_correction = input_(constants.output_folder()+'/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1{}_50yrs'.format(ocean_flag),3)
-try: sim_years = constants.get_years_of_simulation(filename_first_correction)
-except: sim_years = 50
-sim_years = input_(sim_years,4)
+filename_first_correction = input_(constants.output_folder()+'/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1{}_50yrs'.format(ocean_flag),1)
+sim_years = constants.get_years_of_simulation(filename_first_correction)
 
 rms_a = []
 rms_s = []
@@ -28,12 +24,12 @@ rms_s.append(data.seasonal_cycle().anomalies(data_base).rms().tsurf.values)
 
 # Setting figures output directories
 outdir=os.path.join(constants.figures_folder(),
-                    'scenario.exp-930.geoeng.cld.artificial.iteration_monthly{}{}_{}yrs'.format(r_fixed_flag,ocean_flag,sim_years))
+                    'scenario.exp-930.geoeng.cld.artificial.iteration{}_{}yrs'.format(ocean_flag,sim_years))
 
 
 niter = 1
 filename = os.path.join(constants.output_folder(),
-                        'scenario.exp-930.geoeng.cld.artificial.iter{}_monthly{}{}_{}yrs'.format(niter,r_fixed_flag,ocean_flag,sim_years))
+                        'scenario.exp-930.geoeng.cld.artificial.iter{}{}_{}yrs'.format(niter,ocean_flag,sim_years))
 while os.path.isfile(rmext(filename)+'.bin'):
     # Setting figures output directories
     outdir_abs=os.path.join(outdir,'iter{}'.format(niter),'absolute')
@@ -57,7 +53,7 @@ while os.path.isfile(rmext(filename)+'.bin'):
 
     niter += 1
     filename = os.path.join(constants.output_folder(),
-                            'scenario.exp-930.geoeng.cld.artificial.iter{}_monthly{}{}_{}yrs'.format(niter,r_fixed_flag,ocean_flag,sim_years))
+                            'scenario.exp-930.geoeng.cld.artificial.iter{}{}_{}yrs'.format(niter,ocean_flag,sim_years))
 print('Plotting rms...')
 # plot rms_a
 plt.figure()
@@ -86,5 +82,3 @@ plt.gca().yaxis.set_minor_locator(MultipleLocator(0.1))
 plt.grid(which='both')
 plt.savefig(outdir+'/improvement_seascyc.png')
 plt.close()
-
-print('Done!!!')

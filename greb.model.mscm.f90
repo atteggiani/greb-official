@@ -110,10 +110,12 @@ module mo_numerics
   integer, parameter, dimension(12) :: jday_mon = (/31,28,31,30,31,30,31,31,30,31,30,31/) ! days per
   real, parameter    :: dlon      = 360./xdim         ! linear increment in lon
   real, parameter    :: dlat      = 180./ydim         ! linear increment in lat
+  real, parameter    :: deg       = 2.*3.14159*6.371e6/360. ! length of 1deg latitude [m] at the equator
 
   integer            :: ireal     = 4         	      ! record length for IO (machine dependent)
 ! 						        ireal = 4 for Mac Book Pro and Ubuntu Linux
-
+  real, dimension(ydim) :: lat                        ! Array with all the latitudes
+  real, dimension(xdim,ydim) :: wlat                  ! Correction factor for length (based on cosine lat)
   namelist / numerics / time_flux, time_ctrl, time_scnr
 
 end module mo_numerics
@@ -153,7 +155,7 @@ module mo_physics
   integer  :: log_tsurf_ext   = 0              ! process control evaporation parameterisation
   integer  :: log_hwind_ext   = 0              ! process control advection parameterisation
   integer  :: log_omega_ext   = 0              ! process control for reference climatology
-
+  integer  :: log_control      = 1              ! process control for the "control" run
 ! parameters for scenarios
   real     :: dradius   = 0.		 ! deviations from actual earth radius in %
 
@@ -233,7 +235,7 @@ module mo_physics
 
   real :: t0, t1, t2
 
-  namelist / physics / log_exp, ct_sens, da_ice, a_no_ice, a_cloud, co_turb, kappa, 	&
+  namelist / physics / log_exp, log_control, ct_sens, da_ice, a_no_ice, a_cloud, co_turb, kappa, 	&
 &                      p_emi, Tl_ice1, Tl_ice2, To_ice1, To_ice2, r_qviwv,          	&
 &		                   log_cloud_dmc, log_ocean_dmc, log_atmos_dmc, log_co2_dmc,        &
 &                      log_hydro_dmc, log_qflux_dmc, 					                          &
@@ -274,8 +276,20 @@ subroutine greb_model
   real, dimension(xdim,ydim) :: Ts0, Ts1, Ta0, Ta1, To0, To1, q0, q1,       &
 &                               ts_ini, ta_ini, q_ini, to_ini
 
+! Compute parameters
+    ! lat
+    do i=1,ydim
+      lat(i) = -90-(dlat*0.5)+i*dlat
+    end do
+    ! wlat
+    do i=1,xdim
+      wlat(i,:) = cos(2.*3.14159*lat/360.)
+    end do
+
 ! open output files
-  open(101,file='control.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  if ( log_control .eq. 1 ) then
+      open(101,file='control.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  end if
   open(102,file='scenario.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
   ! open(103,file='scenario.gmean.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal)
 
@@ -391,16 +405,17 @@ subroutine greb_model
   end if
 
 ! control run
-  print*,'% CONTROL RUN CO2=',CO2_ctrl,'  time=', time_ctrl,'yr'
-  print 1001, "YEAR", "CO2[ppm]", "SW[W/m^2]", "global mean[C]", "Trop Pac[C]", "Hamburg[C]", "North Pole[C]" !TB
-  Ts1 = Ts_ini; Ta1 = Ta_ini; To1 = To_ini; q1 = q_ini;                   ! initialize fields
-  year=1970; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
-  do it=1, time_ctrl*nstep_yr                                             ! main time loop
-    call time_loop(it, isrec, year, CO2_ctrl, irec, mon, 101, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
-    Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
-    if (log_exp .eq. 1 .and. mod(it,nstep_yr) .eq. 0) year=year+1
-  end do
-
+  if ( log_control .eq. 1 ) then
+      print*,'% CONTROL RUN CO2=',CO2_ctrl,'  time=', time_ctrl,'yr'
+      print 1001, "YEAR", "CO2[ppm]", "SW[W/m^2]", "global mean[C]", "Trop Pac[C]", "Hamburg[C]", "North Pole[C]" !TB
+      Ts1 = Ts_ini; Ta1 = Ta_ini; To1 = To_ini; q1 = q_ini;                   ! initialize fields
+      year=1970; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
+      do it=1, time_ctrl*nstep_yr                                             ! main time loop
+        call time_loop(it, isrec, year, CO2_ctrl, irec, mon, 101, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
+        Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
+        if (log_exp .eq. 1 .and. mod(it,nstep_yr) .eq. 0) year=year+1
+      end do
+  end if
 
 
 ! scenario run
@@ -876,7 +891,7 @@ subroutine diffusion(T1, dX_diffuse,h_scl, wz)
 !+++++++++++++++++++++++++++++++++++++++
 !    diffusion
 
-  USE mo_numerics,   ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl
+  USE mo_numerics,   ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl, deg, lat
   USE mo_physics,    ONLY: pi, z_topo, log_exp, kappa, z_vapor
   implicit none
 
@@ -886,17 +901,16 @@ subroutine diffusion(T1, dX_diffuse,h_scl, wz)
 
   integer :: i
   integer, dimension(ydim)   :: ilat = (/(i,i=1,ydim)/)
-  real, dimension(ydim)      :: lat, dxlat, ccx
+  real, dimension(ydim)      :: dxlat, ccx
   real, dimension(xdim)      :: T1h, dTxh
   real, dimension(xdim,ydim) :: dTx, dTy
 
-  real    :: deg, dd, dx, dy, dyy, ccy, ccx2
+  real    :: dd, dx, dy, dyy, ccy, ccx2
   integer :: j, k, km1, kp1, jm1, jm2, jm3, jp1, jp2, jp3
   integer :: time2, dtdff2, tt2
 
-  deg = 2.*pi*6.371e6/360.;   ! length of 1deg latitude [m]
   dx = dlon; dy=dlat; dyy=dy*deg
-  lat = dlat*ilat-dlat/2.-90.;  dxlat=dx*deg*cos(2.*pi/360.*lat)
+  dxlat=dx*deg*cos(2.*pi/360.*lat)
   ccy=kappa*dt_crcl/dyy**2
   ccx=kappa*dt_crcl/dxlat**2
 
@@ -1046,7 +1060,7 @@ subroutine advection(T1, dX_advec,h_scl, wz)
 !+++++++++++++++++++++++++++++++++++++++
 !    advection after DD
 
-  USE mo_numerics, ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl
+  USE mo_numerics, ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl, deg, lat
   USE mo_physics,  ONLY: pi, z_topo, uclim, vclim, ityr, z_vapor, log_exp
   USE mo_physics,  ONLY: uclim_m, uclim_p, vclim_m, vclim_p
   implicit none
@@ -1057,17 +1071,16 @@ subroutine advection(T1, dX_advec,h_scl, wz)
 
   integer :: i
   integer, dimension(ydim):: ilat = (/(i,i=1,ydim)/)
-  real, dimension(ydim) :: lat, dxlat, ccx
+  real, dimension(ydim) :: dxlat, ccx
   real, dimension(xdim) :: T1h, dTxh
   real, dimension(xdim,ydim) :: ddx, T, dTx, dTy
   integer time2, dtdff2, tt2
 
-  real    :: deg, dx, dy, dd, dyy, ccy, ccx2
+  real    :: dx, dy, dd, dyy, ccy, ccx2
   integer :: j, k, km1, km2, kp1, kp2, jm1, jm2, jm3, jp1, jp2, jp3
 
-  deg = 2.*pi*6.371e6/360.;   ! length of 1deg latitude [m]
   dx = dlon; dy=dlat; dyy=dy*deg
-  lat = dlat*ilat-dlat/2.-90.;  dxlat=dx*deg*cos(2.*pi/360.*lat)
+  dxlat=dx*deg*cos(2.*pi/360.*lat)
   ccy=dt_crcl/dyy/2.
   ccx=dt_crcl/dxlat/2.
 
@@ -1419,7 +1432,7 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 
   USE mo_numerics,     ONLY: xdim, ydim, jday_mon, ndt_days, nstep_yr, time_scnr &
 &                          , time_ctrl, ireal, dt
-  USE mo_physics,      ONLY: jday, log_exp, r_qviwv, wz_vapor
+  USE mo_physics,      ONLY: jday, log_exp, log_control, r_qviwv, wz_vapor
   use mo_diagnostics,  ONLY: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm &
 &                          , Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, qmn_ctrl, icmn_ctrl, prmn_ctrl, evamn_ctrl, qcrclmn_ctrl
 
@@ -1433,9 +1446,9 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
   qcrclmm=qcrclmm+dq_crcl*(r_qviwv*wz_vapor)/dt; ! kg/m2/s
 
 ! control output
-  if (       jday == sum(jday_mon(1:mon))                   &
+  if (       jday == sum(jday_mon(1:mon))                 &
 &      .and. it/float(ndt_days) == nint(it/float(ndt_days)) &
-&      .and. iunit == 101 ) then
+&      .and. iunit == 101 .and. log_control .eq. 1) then
      ndm=jday_mon(mon)*ndt_days
      if (it/float(ndt_days)  > 365*(time_ctrl-1)) then
          if (log_exp .eq. 1 .or. log_exp .eq. 230 &
@@ -1469,45 +1482,33 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 &      .and. iunit == 102 ) then
      ndm=jday_mon(mon)*ndt_days
      irec=irec+1;
-     if (log_exp .ge. 35 .and. log_exp .le. 37 ) then
-         write(iunit,rec=8*irec-7)   Tmm/ndm
-         write(iunit,rec=8*irec-6)  Tamm/ndm
-         write(iunit,rec=8*irec-5)  Tomm/ndm
-         write(iunit,rec=8*irec-4)   qmm/ndm
-         write(iunit,rec=8*irec-3)  icmm/ndm
-         write(iunit,rec=8*irec-2)  prmm/ndm
-         write(iunit,rec=8*irec-1) evamm/ndm
-         write(iunit,rec=8*irec) qcrclmm/ndm
+     write(iunit,rec=8*irec-7)   Tmm/ndm
+     write(iunit,rec=8*irec-6)  Tamm/ndm
+     write(iunit,rec=8*irec-5)  Tomm/ndm
+     write(iunit,rec=8*irec-4)   qmm/ndm
+     write(iunit,rec=8*irec-3)  icmm/ndm
+     write(iunit,rec=8*irec-2)  prmm/ndm
+     write(iunit,rec=8*irec-1) evamm/ndm
+     write(iunit,rec=8*irec) qcrclmm/ndm
 
-     else
-         ! write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec-5)  Tomm/ndm -Tomn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec-4)   qmm/ndm -qmn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec-3)  icmm/ndm -icmn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec-2)  prmm/ndm -prmn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec-1) evamm/ndm -evamn_ctrl(:,:,mon)
-         ! write(iunit,rec=8*irec) qcrclmm/ndm -qcrclmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-5)  Tomm/ndm -Tomn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-4)   qmm/ndm -qmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-3)  icmm/ndm -icmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-2)  prmm/ndm -prmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-1) evamm/ndm -evamn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec) qcrclmm/ndm -qcrclmn_ctrl(:,:,mon)
 
-         write(iunit,rec=8*irec-7)   Tmm/ndm
-         write(iunit,rec=8*irec-6)  Tamm/ndm
-         write(iunit,rec=8*irec-5)  Tomm/ndm
-         write(iunit,rec=8*irec-4)   qmm/ndm
-         write(iunit,rec=8*irec-3)  icmm/ndm
-         write(iunit,rec=8*irec-2)  prmm/ndm
-         write(iunit,rec=8*irec-1) evamm/ndm
-         write(iunit,rec=8*irec) qcrclmm/ndm
-
-         ! iyrec=floor(float((irec-1)/12))
-         ! write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
-         ! write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
-         ! write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
-         ! write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
-         ! write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
-         ! write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
-         ! write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
-         ! write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
-     end if
+     ! iyrec=floor(float((irec-1)/12))
+     ! write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
+     ! write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
+     ! write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
+     ! write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
+     ! write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
+     ! write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
+     ! write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
+     ! write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
      Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
      mon=mon+1; if (mon==13) mon=1
   end if
@@ -1519,19 +1520,15 @@ end subroutine output
 function gmean(data)
 !+++++++++++++++++++++++++++++++++++++++
 
-use mo_numerics,		ONLY: xdim, ydim, dlat
+use mo_numerics,		ONLY: xdim, ydim, dlat, lat, wlat
 
 ! declare variables
 real, dimension(xdim,ydim) 	:: data, w
-real, dimension(ydim)		:: lat
 
-do i=1,ydim
-    lat(i) = -90-(dlat*0.5)+i*dlat
-end do
 do i=1,xdim
     w(i,:) = cos(2.*3.14159*lat/360.)
 end do
 
-gmean = sum(data*w)/sum(w)
+gmean = sum(data*wlat)/sum(wlat)
 
 end function

@@ -11,6 +11,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
+from collections.abc import Iterable
 
 class Dataset(xr.Dataset):
     '''
@@ -391,7 +392,7 @@ class DataArray(xr.DataArray):
 
         def _get_var(x):
             keys = x.attrs.keys()
-            name = x.name
+            name = x.name if x.name is not None else 'data'
             if 'long_name' in keys:
                 title = x.attrs['long_name']
             else:
@@ -778,6 +779,23 @@ class constants:
         greb=from_binary(constants.control_def_file()).mean('time')
         return x.interp_like(greb,method=method)
 
+    def def_DataArray(data=None,dims=None,coords=None,name=None,attrs=None):
+        if dims is None:
+            dims=('time','lat','lon')
+        elif isinstance(dims,str):
+            dims = [dims]
+        if coords is None:
+            if 'time' in dims: time = constants.t()
+            if 'lat' in dims: lat = constants.lat()
+            if 'lon' in dims: lon = constants.lon()
+        scope = locals()
+        if ((attrs is None) or ((attrs is not None) and ('long_name' not in attrs))) \
+            and name is not None:
+            attrs={'long_name':name}
+        if coords is None:coords = dict((key,eval(key,scope)) for key in dims)
+        if data is None: data = np.zeros([len(val) for val in coords.values()])
+        return DataArray(data,name=name,dims=dims,coords=coords,attrs=attrs)
+
     @staticmethod
     def to_greb_indexes(lat,lon):
         '''
@@ -813,63 +831,8 @@ class constants:
         return i,j
 
     @staticmethod
-    def to_greb_time(date_str, fmt = '%y-%m-%d'):
-        '''
-        Convert a datestring time to GREB time specification
-
-        Arguments
-        ----------
-        date_str : datestr
-            Datestr of time to convert
-
-        Parameters
-        ----------
-        fmt : str
-            date_str format specification
-
-        Returns
-        ----------
-        GREB model time specificatio for the date_str in input.
-
-        '''
-
-        return dtime.strptime(date_str,fmt).toordinal()*24+24
-
-    @staticmethod
-    def from_greb_time(greb_timenum,fmt = None):
-        '''
-        Convert a GREB time specification to datestr.
-
-        Arguments
-        ----------
-        greb_timenum : int
-            GREB time ordinal
-
-        Parameters
-        ----------
-        fmt : str
-            format specification for the datestr in output.
-
-        Returns
-        ----------
-        datetime.datetime object for the GREB model time ordinal in input.
-        if fmt is provided, returns a datestr.
-
-        '''
-
-        import math
-        timenum = math.ceil((greb_timenum/24)-1)
-        if fmt is None:
-            return dtime.fromordinal(timenum)
-        elif isinstance(fmt,str):
-            return dtime.fromordinal(timenum).strftime(fmt)
-        else:
-            raise Exception('"fmt" must be either None or a valid date format')
-            return
-
-    @staticmethod
     def shape_for_bin(type='cloud'):
-        if type == 'cloud':
+        if type == 'cloud' or type == 'r':
             # 'Shape must be in the form (tdef,ydef,xdef)'
             return (constants.dt(),constants.dy(),constants.dx())
         elif type == 'solar':
@@ -916,7 +879,7 @@ class constants:
             return (sc_filename.split('_')[-1])[:-3]
 
     @staticmethod
-    def get_art_forcing_filename(sc_filename,forcing=None):
+    def get_art_forcing_filename(sc_filename,forcing=None,output_path=None):
         '''
         Gets the artificial cloud filename used to obtain the scenario filename in input.
 
@@ -958,12 +921,11 @@ class constants:
         elif forcing == 'solar':
             txt='exp-931.geoeng.'
         else: raise Exception('Supported forcings are "cloud" or "solar".')
+        if output_path is None:
+            output_path = eval('constants.{}_folder()'.format(forcing))
         if txt in sc_filename:
             art_forcing_name = sc_filename[sc_filename.index(txt)+len(txt):]
-            if '.iter' in sc_filename:
-                return os.path.join(eval('constants.{}_folder()'.format(forcing)),'cld.artificial.iteration_'+'_'.join(sc_filename.split('_')[1:]),art_forcing_name)
-            else:
-                return os.path.join(eval('constants.{}_folder()'.format(forcing)), art_forcing_name)
+            return os.path.join(output_path, art_forcing_name)
         elif ('exp-20.2xCO2' in sc_filename) or ('control.default' in sc_filename):
             return eval('constants.{}_def_file()'.format(forcing))
         else:
@@ -971,7 +933,7 @@ class constants:
                             ' must contain "{}".'.format(txt))
 
     @staticmethod
-    def get_scenario_filename(forcing_filename,years_of_simulation=50):
+    def get_scenario_filename(forcing_filename,years_of_simulation=50,input_path=None):
         '''
         Gets the scenario filename from either an artifial cloud or solar forcing
         filename.
@@ -1005,7 +967,8 @@ class constants:
             sc_name = 'scenario.exp-20.2xCO2'+'_{}yrs'.format(years_of_simulation)
         else:
            raise Exception('The forcing file must contain either "cld.artificial" or "sw.artificial"')
-        return os.path.join(constants.output_folder(),sc_name)
+        if input_path is None: input_path = constants.output_folder()
+        return os.path.join(input_path,sc_name)
 
     @staticmethod
     def days_each_month():
@@ -1174,7 +1137,7 @@ def group_by(x,time_group,copy=True,update_attrs=True):
 
 def rmext(filename):
     """
-    Remove the .bin or .ctl extension at the end of the filename.
+    Remove the .bin,.gad or .ctl extension at the end of the filename.
     If none of those extensions is present, returns filename.
 
     Arguments
@@ -1190,7 +1153,7 @@ def rmext(filename):
     """
 
     path,ext = os.path.splitext(filename)
-    if ext not in ['.ctl','.bin','.']: path = path+ext
+    if ext not in ['.ctl','.bin','.gad','.']: path = path+ext
     return path
 
 def bin2netCDF(file):
@@ -1811,8 +1774,6 @@ def multidim_regression(x,y,x_pred=None,axis=-1,multivariate=False):
         else:
             return x_pred.dot(THETA)
 
-
-
 def create_bin_ctl(path,vars):
     '''
     Creates '.bin' and '.ctl' file from Dictionary.
@@ -1835,7 +1796,8 @@ def create_bin_ctl(path,vars):
     def _create_bin(path,vars):
         path = rmext(path)
         with open(path+'.bin','wb') as f:
-            for v in vars: f.write(v)
+            for v in vars:
+                f.write(v)
 
     def _create_ctl(path, varnames = None, xdef = None,
                    ydef = None, zdef = 1, tdef = None):
@@ -1861,6 +1823,7 @@ def create_bin_ctl(path,vars):
     varnames = list(vars.keys())
     nvars = len(varnames)
     varvals = list(vars.values())
+    varvals=[v.values if check_xarray(v) else v for v in varvals]
     l=[v.shape for v in varvals]
     if not ( l.count(l[0]) == len(l) ):
         raise Exception('var1,var2,...,varN must be of the same size')
@@ -1883,28 +1846,19 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     time : array of str
       Datestr for the extent of the 'time' coordinate, in the form
       [time_min, time_max].
-      Default datestr format is '%m-%d' (e.g. '03-04' is 4th March); year
-      is automatically set at 2000. To specify your own format
-      (for month and day) use the form: [time_min,time_max,format].
-      If time is not provided, the default GREB time is used
-      (see constants.t() function).
+      Datestr format is '%y-%m-%d' (e.g. '2000-03-04' is 4th March 2000).
 
     longitude : array of float
       Extent of the 'lon' coordinate, in the form [lon_min, lon_max].
-      Format is E-W degrees -> -180° to 180° (e.g. [-10,70] is from 10E to 70W).
-      If longitude is not provided, the default GREB longitude is used
-      (see constants.lon() function).
+      Format: degrees -> 0° to 360°.
 
     latitude : array of float
       Extent of the 'lat' coordinate, in the form [lat_min, lat_max].
-      Format is S-N degrees -> -90° to 90° (e.g. [-20,40] is from 20S to 40N).
-      If latitude is not provided, the default GREB latitude is used
-      (see constants.lat() function).
+      Format: S-N degrees -> -90° to 90°.
 
-    value : DataArray, np.ndarray or callable
+    value : DataArray, np.ndarray, float or callable
       Cloud value to be assigned to the dimensions specified in time, latitude
-      and longitude. If no dimension is specified, it needs to be the exact matrix
-      for cloud values.
+      and longitude.
       If callable, equals the function to be applied element-wise to the
       "cloud_base" (e.g. "lambda x: x*1.1" means cloud_base scaled by 1.1).
 
@@ -1924,19 +1878,6 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
       Creates artificial cloud file ('.bin' and '.ctl' files).
 
     '''
-    def check_lon(min,max):
-        if (min*max) > 0:
-            return (min<max)
-        else:
-            return (min>max)
-    def switch_lon(x):
-        if isinstance(x,list):
-            if len(x) == 1:
-                return 360+x if x<0 else x
-            else:
-                return [360+k if k<0 else k for k in x]
-        else:
-            return 360+x if x<0 else x
     # Define constants
     def_t=constants.t()
     def_lat=constants.lat()
@@ -1944,108 +1885,115 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
     dt = constants.dt()
     dx = constants.dx()
     dy = constants.dy()
+
+    if cloud_base is not None:
+        if isinstance(cloud_base,str):
+            data=from_binary(cloud_base).cloud
+        elif isinstance(cloud_base,np.ndarray):
+            data = constants.def_DataArray(data=constants.to_shape_for_bin(cloud_base),name='cloud')
+        elif isinstance(cloud_base,xr.DataArray):
+            data = DataArray(cloud_base,attrs=cloud_base.attrs)
+        else:
+            raise Exception('"cloud_base" must be a xarray.DataArray, numpy.ndarray,'+
+                            ' or a valid path to the cloud file.')
+    else:
+        data = constants.def_DataArray(name='cloud')
+
+    mask=True
     # Check coordinates and constrain them
     # TIME
     if time is not None:
-        t_exc = '"time" must be an int or date_string in the form [time_min,time_max]\n'+\
-              'The date_string must have the format "%m-%d" (e.g. "03-04" for 4th March).\n'+\
-              'To specify your own format use the form: [time_min,time_max,format]'
-        fmt = '%y-%m-%d'
-        if not isinstance(time,list):
-            if (isinstance(time,float) or isinstance(time,int) or isinstance(time,str)):
-                time = [time]
-            else:
+        t_exc = '"time" must be a np.datetime64, datestring or list of np.datetime64 istances or datestrings, in the form [time_min,time_max].\n'+\
+                'Datestring must be in the format "%y-%m-%d".'
+        if isinstance(time,Iterable):
+            if not(isinstance(time,str)) and (len(time) > 2):
                 raise Exception(t_exc)
-        if len(time) == 1:
-            if isinstance(time[0],str):
-                t_min = t_max = to_greb_time('00-'+time[0])
+            if isinstance(time,str):
+                time = np.datetime64(time)
+                mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
             else:
-                t_min = t_max = int(time[0])
-        elif len(time) == 2:
-            if isinstance(time[0],str):
-                t_min = to_greb_time('00-'+time[0])
-                t_max = to_greb_time('00-'+time[1])
-            else:
-                t_min = int(time[0])
-                t_max = int(time[1])
-        elif len(time) == 3:
-            if isinstance(time[0],str):
-                t_min = to_greb_time('00-'+time[0],'%y-'+time[2])
-                t_max = to_greb_time('00-'+time[1],'%y-'+time[2])
-            else:
-                raise Exception(t_exc)
+                time = [np.datetime64(t) for t in time]
+                if time[0]==time[1]:
+                    time = time[0]
+                    mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
+                elif time[1]>time[0]:
+                    mask = mask&(data.coords['time']>=time[0])&(data.coords['time']<=time[1])
+                else:
+                    mask = mask&((data.coords['time']>=time[0])|(data.coords['time']<=time[1]))
+        elif isinstance(time,np.datetime64):
+            mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
         else:
             raise Exception(t_exc)
-        ind_t=np.where((def_t>=t_min) & (def_t<=t_max))[0]
     else:
-        ind_t=np.where((def_t>=def_t.min()) & (def_t<=def_t.max()))[0]
+        mask=mask&(constants.def_DataArray(np.full(constants.dt(),True),dims='time'))
+
     # LONGITUDE
     if longitude is not None:
         lon_exc = '"longitude" must be a number or in the form [lon_min,lon_max]'
-        if (isinstance(longitude,float) or isinstance(longitude,int)):
-            longitude = [longitude]
-        if isinstance(longitude,list):
-            if len(longitude) > 2:
+        if isinstance(longitude,Iterable):
+            if (isinstance(longitude,str)) or (len(longitude) > 2):
                 raise Exception(lon_exc)
+            elif longitude[1]==longitude[0]:
+                longitude = np.array(longitude[0])
+                if (longitude<0) or (longitude>360):
+                    raise ValueError('"longitude" must be in the range [0÷360]')
+                else:
+                    mask = mask&(data.coords['lon']==data.coords['lon'][np.argmin(abs(data.coords['lon']-longitude))])
+            elif longitude[1]>longitude[0]:
+                mask = mask&((data.coords['lon']>=longitude[0])&(data.coords['lon']<=longitude[1]))
             else:
-                if np.any(list(map(lambda l: (l > 180 or l < -180),longitude))):
-                        raise Exception('"longitude" must be in the range [-180÷180]')
-                lon_min,lon_max = switch_lon(longitude)
+                mask = mask&((data.coords['lon']>=longitude[0])|(data.coords['lon']<=longitude[1]))
+        elif (isinstance(longitude,float) or isinstance(longitude,int)):
+            longitude=np.array(longitude)
+            if np.any([longitude<0,longitude>360]):
+                raise ValueError('"longitude" must be in the range [0÷360]')
+            else:
+                mask = mask&(data.coords['lon']==data.coords['lon'][np.argmin(abs(data.coords['lon']-longitude))])
         else:
             raise Exception(lon_exc)
-        if check_lon(lon_min,lon_max):
-            ind_lon=np.where((def_lon>=lon_min) & (def_lon<=lon_max))[0]
-        else:
-            ind_lon=np.where((def_lon>=lon_min) | (def_lon<=lon_max))[0]
     else:
-        ind_lon=np.where((def_lon>=def_lon.min()) & (def_lon<=def_lon.max()))[0]
+        mask=mask&(constants.def_DataArray(np.full(constants.dx(),True),dims='lon'))
+
     # LATITUDE
     if latitude is not None:
         lat_exc = '"latitude" must be a number or in the form [lat_min,lat_max]'
-        if (isinstance(latitude,float) or isinstance(latitude,int)):
-            latitude = [latitude]
-        if isinstance(latitude,list):
-            if len(latitude) > 2:
+        if isinstance(latitude,Iterable):
+            if (isinstance(latitude,str)) or (len(latitude) > 2):
                 raise Exception(lat_exc)
+            elif latitude[1]==latitude[0]:
+                latitude = np.array(latitude[0])
+                if np.any([latitude<-90,latitude>90]):
+                    raise ValueError('"latitude" must be in the range [-90÷90]')
+                else:
+                    mask = mask&data.coords['lat']==data.coords['lat'][np.argmin(abs(data.coords['lat']-latitude))]
+            elif latitude[1]>latitude[0]:
+                mask = mask&(data.coords['lat']>=latitude[0])&(data.coords['lat']<=latitude[1])
             else:
-                if np.any(list(map(lambda l: (l > 90 or l < -90),latitude))):
-                        raise Exception('"latitude" must be in the range [-90÷90]')
-                lat_min,lat_max = latitude
+                mask = mask&((data.coords['lat']>=latitude[0])|(data.coords['lat']<=latitude[1]))
+        elif (isinstance(latitude,float) or isinstance(latitude,int)):
+            if (latitude<-90) or (latitude>90):
+                raise ValueError('"latitude" must be in the range [0÷360]')
+            else:
+                mask = mask&(data.coords['lat']==data.coords['lat'][np.argmin(abs(data.coords['lat']-latitude))])
         else:
             raise Exception(lat_exc)
-        if lat_min < lat_max:
-            ind_lat=np.where((def_lat>=lat_min) & (def_lat<=lat_max))[0]
-        else:
-            ind_lat=np.where((def_lat>=lat_min) | (def_lat<=lat_max))[0]
     else:
-        ind_lat=np.where((def_lat>=def_lat.min()) & (def_lat<=def_lat.max()))[0]
-    if cloud_base is not None:
-        if isinstance(cloud_base,str):
-            data=data_from_binary(cloud_base)['cloud']
-        elif isinstance(cloud_base,np.ndarray):
-            data = cloud_base
-        elif isinstance(cloud_base,xr.DataArray):
-            data = cloud_base.values
-        else:
-            raise Exception('"cloud_base" must be a xrray.DataArray or numpy.ndarray'+
-                            'matrix of the cloud data, or a valid path to the cloud file.')
-        data = constants.to_shape_for_bin(data)
-    else:
-        data = np.zeros((dt,dy,dx))
+        mask=mask&(constants.def_DataArray(np.full(constants.dy(),True),dims='lat'))
+
     # Change values
     if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
-        data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value
+        data=data.where(~mask,value)
     elif isinstance(value,xr.DataArray):
-        data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value.values
+        data=data.where(~mask,value.values)
     elif callable(value):
-        data[ind_t[:,None,None],ind_lat[:,None],ind_lon] = value(data[ind_t[:,None,None],ind_lat[:,None],ind_lon])
+        data=data.where(~mask,value(data))
     else:
         raise Exception('"value" must be a number, numpy.ndarray, xarray.DataArray or function to apply to the "cloud_base" (e.g. "lambda x: x*1.1")')
     # Correct value above 1 or below 0
-    data=np.where(data<=1,data,1)
-    data=np.where(data>=0,data,0)
+    data=data.where(data<=1,1)
+    data=data.where(data>=0,0)
     # Write .bin and .ctl files
-    vars = {'cloud':data}
+    vars = {'cloud':data.values}
     if outpath is None:
         outpath=constants.cloud_folder()+'/cld.artificial.ctl'
     create_bin_ctl(outpath,vars)
@@ -2061,17 +2009,11 @@ def create_solar(time = None, latitude = None, value = 1,
     time : array of str
       Datestr for the extent of the 'time' coordinate, in the form
       [time_min, time_max].
-      Default datestr format is '%m-%d' (e.g. '03-04' is 4th March); year
-      is automatically set at 2000. To specify your own format
-      (for month and day) use the form: [time_min,time_max,format].
-      If time is not provided, the default GREB time is used
-      (see constants.t() function).
+      Datestr format is '%y-%m-%d' (e.g. '2000-03-04' is 4th March 2000).
 
     latitude : array of float
       Extent of the 'lat' coordinate, in the form [lat_min, lat_max].
-      Format is S-N degrees -> -90° to 90° (e.g. [-20,40] is from 20S to 40N).
-      If latitude is not provided, the default GREB latitude is used
-      (see constants.lat() function).
+      Format: S-N degrees -> -90° to 90°.
 
     value : float or callable
       Solar value to be assigned to the dimensions specified in time and
@@ -2084,7 +2026,7 @@ def create_solar(time = None, latitude = None, value = 1,
       new matrix or full path to the file ('.bin' and '.ctl' files).
 
     outpath : str
-      Full path where the new cloud file ('.bin' and '.ctl' files)
+      Full path where the new solar file ('.bin' and '.ctl' files)
       is saved.
       If not provided, the following default path is chosen:
       '/Users/dmar0022/university/phd/greb-official/artificial_solar_radiation/sw.artificial'
@@ -2101,82 +2043,81 @@ def create_solar(time = None, latitude = None, value = 1,
     def_lat=constants.lat()
     dt = constants.dt()
     dy = constants.dy()
-    # Check coordinates and constrain them
-    # TIME
-    if time is not None:
-        t_exc = '"time" must be an int or date_string in the form [time_min,time_max]\n'+\
-              'The date_string must have the format "%m-%d" (e.g. "03-04" for 4th March).\n'+\
-              'To specify your own format use the form: [time_min,time_max,format]'
-        fmt = '%y-%m-%d'
-        if not isinstance(time,list):
-            if (isinstance(time,float) or isinstance(time,int) or isinstance(time,str)):
-                time = [time]
-            else:
-                raise Exception(t_exc)
-        if len(time) == 1:
-            if isinstance(time[0],str):
-                t_min = t_max = to_greb_time('00-'+time[0])
-            else:
-                t_min = t_max = int(time[0])
-        elif len(time) == 2:
-            if isinstance(time[0],str):
-                t_min = to_greb_time('00-'+time[0])
-                t_max = to_greb_time('00-'+time[1])
-            else:
-                t_min = int(time[0])
-                t_max = int(time[1])
-        elif len(time) == 3:
-            if isinstance(time[0],str):
-                t_min = to_greb_time('00-'+time[0],'%y-'+time[2])
-                t_max = to_greb_time('00-'+time[1],'%y-'+time[2])
-            else:
-                raise Exception(t_exc)
+
+    if solar_base is not None:
+        if isinstance(solar_base,str):
+            data=from_binary(solar_base).solar
+        elif isinstance(solar_base,np.ndarray):
+            data = constants.def_DataArray(data=constants.to_shape_for_bin(solar_base),name='solar')
+        elif isinstance(solar_base,xr.DataArray):
+            data = DataArray(solar_base,attrs=solar_base.attrs)
         else:
-            raise Exception(t_exc)
-        ind_t=np.where((def_t>=t_min) & (def_t<=t_max))[0]
+            raise Exception('"solar_base" must be a xarray.DataArray, numpy.ndarray,'+
+                            ' or a valid path to the solar file.')
     else:
-        ind_t=np.where((def_t>=def_t.min()) & (def_t<=def_t.max()))[0]
+        data = constants.def_DataArray(name='solar')
+
     # LATITUDE
     if latitude is not None:
         lat_exc = '"latitude" must be a number or in the form [lat_min,lat_max]'
-        if (isinstance(latitude,float) or isinstance(latitude,int)):
-            latitude = [latitude]
-        if isinstance(latitude,list):
-            if len(latitude) > 2:
+        if isinstance(latitude,Iterable):
+            if (isinstance(latitude,str)) or (len(latitude) > 2):
                 raise Exception(lat_exc)
+            elif latitude[1]==latitude[0]:
+                latitude = np.array(latitude[0])
+                if np.any([latitude<-90,latitude>90]):
+                    raise ValueError('"latitude" must be in the range [-90÷90]')
+                else:
+                    mask = mask&data.coords['lat']==data.coords['lat'][np.argmin(abs(data.coords['lat']-latitude))]
+            elif latitude[1]>latitude[0]:
+                mask = mask&(data.coords['lat']>=latitude[0])&(data.coords['lat']<=latitude[1])
             else:
-                if np.any(list(map(lambda l: (l > 90 or l < -90),latitude))):
-                        raise Exception('"latitude" must be in the range [-90÷90]')
-                lat_min,lat_max = latitude
+                mask = mask&((data.coords['lat']>=latitude[0])|(data.coords['lat']<=latitude[1]))
+        elif (isinstance(latitude,float) or isinstance(latitude,int)):
+            if (latitude<-90) or (latitude>90):
+                raise ValueError('"latitude" must be in the range [0÷360]')
+            else:
+                mask = mask&(data.coords['lat']==data.coords['lat'][np.argmin(abs(data.coords['lat']-latitude))])
         else:
             raise Exception(lat_exc)
-        if lat_min < lat_max:
-            ind_lat=np.where((def_lat>=lat_min) & (def_lat<=lat_max))[0]
+
+    # TIME
+    if time is not None:
+        t_exc = '"time" must be a np.datetime64, datestring or list of np.datetime64 istances or datestrings, in the form [time_min,time_max].\n'+\
+                'Datestring must be in the format "%y-%m-%d".'
+        if isinstance(time,Iterable):
+            if not(isinstance(time,str)) and (len(time) > 2):
+                raise Exception(t_exc)
+            if isinstance(time,str):
+                time = np.datetime64(time)
+                mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
+            else:
+                time = [np.datetime64(t) for t in time]
+                if time[0]==time[1]:
+                    time = time[0]
+                    mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
+                elif time[1]>time[0]:
+                    mask = mask&(data.coords['time']>=time[0])&(data.coords['time']<=time[1])
+                else:
+                    mask = mask&((data.coords['time']>=time[0])|(data.coords['time']<=time[1]))
+        elif isinstance(time,np.datetime64):
+            mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
         else:
-            ind_lat=np.where((def_lat>=lat_min) | (def_lat<=lat_max))[0]
-    else:
-        ind_lat=np.where((def_lat>=def_lat.min()) & (def_lat<=def_lat.max()))[0]
-    if solar_base is not None:
-        if isinstance(solar_base,str):
-            data=data_from_binary(solar_base)['solar']
-        elif isinstance(solar_base,np.ndarray):
-            data = solar_base
-        else:
-            raise Exception('"solar_base" must be a valid .ctl or .bin file or a numpy.ndarray matrix of the solar radiation data')
-        data = constants.to_shape_for_bin(data,type='solar')
-    else:
-        data = np.zeros((dt,dy,1))
+            raise Exception(t_exc)
+
     # Change values
     if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
-        data[ind_t[:,None,None],ind_lat[:,None],0] = value
+        data=data.where(~mask,value)
+    elif isinstance(value,xr.DataArray):
+        data=data.where(~mask,value.values)
     elif callable(value):
-        data[ind_t[:,None,None],ind_lat[:,None],0] = value(data[ind_t[:,None,None],ind_lat[:,None],0])
+        data=data.where(~mask,value(data))
     else:
-        raise Exception('"value" must be a number, numpy.ndarray or function to apply to the "solar_base" (e.g. "lambda x: x*0.9")')
-    # Correct value below 0
-    data=np.where(data>=0,data,0)
+        raise Exception('"value" must be a number, numpy.ndarray, xarray.DataArray or function to apply to the "solar_base" (e.g. "lambda x: x*1.1")')
+    # Correct values below 0
+    data=data.where(data>=0,0)
     # Write .bin and .ctl files
-    vars = {'solar':data}
+    vars = {'solar':data.values}
     if outpath is None:
         outpath=constants.solar_folder()+'/sw.artificial.ctl'
     create_bin_ctl(outpath,vars)

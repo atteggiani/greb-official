@@ -4,69 +4,50 @@ PROGNAME=$0
 
 usage() {
   cat << EOF
-Usage: $PROGNAME [-i <tot_iter>] [-n <t_new>] [-f] ...
+Usage: $PROGNAME [-i <tot_iter>] [-n <tsurf>] ...
 
 Possible keys:
--O -> change clouds only over oceans
--f -> set a FIXED sensitivity coefficient
+-o -> change clouds only over oceans
 -i -> total number of iterations
 -n -> new tsurf pattern
--o -> old tsurf pattern
-
 
 EOF
   exit 1
 }
 
-while getopts hOfi:n:o: opt; do
+while getopts hi:n:o: opt; do
   case $opt in
-    (O) ocean_flag="_ocean";;
-    (f) fixed_flag="_f";;
+    (o) ocean_flag="_ocean";;
     (i) tot_iter=$OPTARG;;
-    (n) t_new=$OPTARG;;
-    (o) t_old_r=$OPTARG;;
+    (n) tsurf=$OPTARG;;
     (*) usage
   esac
 done
 
 ((${tot_iter:=5}))
-fixed_flag=${fixed_flag:="_nf"}
 
 wdir=$(pwd)
 # Files for 1st iteration
-t_new=${t_new:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1${ocean_flag}_50yrs"}
-t_new_r="$t_new"
-t_old_r=${t_old_r:="${wdir}/output/scenario.exp-20.2xCO2_50yrs"}
-t_iter="$t_new"
-sim_years=${t_new##*_};sim_years=${sim_years%.*}
+tsurf=${tsurf:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs"}
+tsurf_init=$tsurf
+sim_years=${tsurf##*_};sim_years=${sim_years%.*}
 
 # Initialize iterations
-if [[ $t_new_r == *"iter"* ]]; then
-    niter=${t_new_r##*iter};niter=$((${niter%%_*}+1))
-else
-    niter=1
-fi
-tot_iter=$(($tot_iter + $niter - 1))
-
+niter=1
 while (( $niter <= $tot_iter )); do
+    # Create cloud matrix
     echo -e "\nIter. ${niter}/${tot_iter} -- Creating new cloud matrix..."
-    python cloud_iteration.py $niter $t_new $t_new_r $t_old_r $fixed_flag $ocean_flag
+    python cloud_iteration.py $niter $tsurf $ocean_flag
     pad="Iter. ${niter}/${tot_iter} "
+    # RUN GREB
+
     printf "%*s%b" ${#pad} '' "-- Run GREB\n"
-    ${wdir}/myjobscript.bash -y ${sim_years%yrs} -c "${wdir}/artificial_clouds/cld.artificial.iteration_monthly${fixed_flag}${ocean_flag}/cld.artificial.iter${niter}_monthly${fixed_flag}${ocean_flag}"
+    ./myjobscript.bash -y ${sim_years%yrs} -c "${wdir}/artificial_clouds/cld.artificial.iteration${ocean_flag}/cld.artificial.iter${niter}${ocean_flag}"
     # Change files for next iteration
-    t_new="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}_monthly${fixed_flag}${ocean_flag}_${sim_years}"
-    if [ "$fixed_flag" == "_nf" ]
-    then
-        t_old_r="$t_new_r"
-        t_new_r="$t_new"
-    fi
+    tsurf="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}${ocean_flag}_${sim_years}"
     ((niter++))
 done
 echo -e "\nPlotting iterations...\n"
-if [[ "$ocean_flag" == "" ]];then
-    ocean_flag="-"
-fi
-python ${wdir}/plot_iter.py $fixed_flag $ocean_flag $t_iter ${sim_years%yrs}
+python ./plot_iter.py $tsurf_init $ocean_flag
 echo -e "DONE!!\n"
 exit

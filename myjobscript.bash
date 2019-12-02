@@ -9,30 +9,28 @@ Usage: $PROGNAME [-e <exp_num>] [-y <year_num>] [-o] ...
 
 Possible keys:
 -a -> perform the analysis on the output with the "plot_contours.py" script
+-C -> perform control run, to get the initial condition for the current expriment
 -c <artificial_cloud_file> -> "artificial cloud to be used with exp 930"
 -e <exp_num> -> "experiment number"
--o -> "save control output"
 -s <artificial_sw_file> -> "artificial SW radiation to be used with exp 931"
 -y <year_num> -> "number of years of simulation"
 EOF
   exit 1
 }
 
-while getopts hac:e:os:y: opt; do
+while getopts haCc:e:s:y: opt; do
   case $opt in
     (e) EXP=$OPTARG;;
     (a) analyze=1;;
+    (C) control=1;;
     (c) cld_artificial=$OPTARG
         EXP=930;;
-    (o) output_control=1;;
     (s) sw_artificial=$OPTARG
         EXP=931;;
     (y) YEARS=$OPTARG;;
     (*) usage
   esac
 done
-shift "$((OPTIND - 1))"
-cld_artificial=${cld_artificial:="$1"}
 
 # create work directory if does not already exist
 if [ ! -d work ]
@@ -42,17 +40,6 @@ else
 # else clean up work directory
     rm -f work/*
 fi
-
-# experiment number for scenario run
-((${EXP:=930}))
-# 930 - Geo-Engineering experiment with the artificial clouds forcing
-# 931 - Geo-Engineering experiment with the artificial SW radiation forcing
-
-# flag for saving control output (1 = save control, 0 = don't save control)
-((${output_control:=0}))
-
-# length of sensitivity experiment in years
-((${YEARS:=50}))
 
 ### compile GREB model (uncomment one of these three options)
 gfortran -Ofast -ffast-math -funroll-loops -fopenmp greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
@@ -66,6 +53,17 @@ mv *.mod work/.
 
 # change to work directory
 cd work
+
+# experiment number for scenario run
+((${EXP:=930}))
+# 930 - Geo-Engineering experiment with the artificial clouds forcing
+# 931 - Geo-Engineering experiment with the artificial SW radiation forcing
+
+# switch managing the "control" process
+((${control:=0}))
+
+# length of sensitivity experiment in years
+((${YEARS:=50}))
 
 # link artificial clouds forcing file for experiment 930
 if [ $EXP == 930 ]; then
@@ -114,6 +112,7 @@ time_scnr = $YEARS  	! length of scenario run [yrs]
 /
 &PHYSICS
  log_exp = $EXP     ! sensitivity run as set above
+ log_control = $control     ! control run process switch
 /
 EOF
 
@@ -125,13 +124,15 @@ if [ ! -d ../output ]; then mkdir ../output; fi
 # create filename
 FILENAME=exp-${EXP}.geoeng.${name}_${YEARS}yrs
 
-# rename scenario run output and move it to output folder
-mv scenario.bin ../output/scenario.${FILENAME}.bin
-
 # calculate months of scenario run for header file
 MONTHS=$(($YEARS*12))
 
-# scenario run
+# SCENARIO RUN
+# rename scenario run output and move it to output folder
+# mv scenario.bin ../output/scenario.${FILENAME}.bin
+mv scenario.bin ../output/scenario.${FILENAME}.bin
+
+# cat >../output/scenario.${FILENAME}.ctl <<EOF
 cat >../output/scenario.${FILENAME}.ctl <<EOF
 dset ^scenario.${FILENAME}.bin
 undef 9.e27
@@ -174,7 +175,7 @@ endvars
 EOF
 fi
 # control run
-if [ $output_control -eq 1 ]
+if [ $control -eq 1 ]
 then
 # rename control run output and move it to output folder
     mv control.bin ../output/control.${FILENAME}.bin
