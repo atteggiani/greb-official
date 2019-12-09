@@ -1482,6 +1482,7 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 &      .and. iunit == 102 ) then
      ndm=jday_mon(mon)*ndt_days
      irec=irec+1;
+     ! write(iunit,rec=irec)   Tmm/ndm
      write(iunit,rec=8*irec-7)   Tmm/ndm
      write(iunit,rec=8*irec-6)  Tamm/ndm
      write(iunit,rec=8*irec-5)  Tomm/ndm

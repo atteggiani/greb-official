@@ -129,10 +129,7 @@ MONTHS=$(($YEARS*12))
 
 # SCENARIO RUN
 # rename scenario run output and move it to output folder
-# mv scenario.bin ../output/scenario.${FILENAME}.bin
 mv scenario.bin ../output/scenario.${FILENAME}.bin
-
-# cat >../output/scenario.${FILENAME}.ctl <<EOF
 cat >../output/scenario.${FILENAME}.ctl <<EOF
 dset ^scenario.${FILENAME}.bin
 undef 9.e27

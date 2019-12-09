@@ -30,7 +30,9 @@ outdir=os.path.join(constants.figures_folder(),
 niter = 1
 filename = os.path.join(constants.output_folder(),
                         'scenario.exp-930.geoeng.cld.artificial.iter{}{}_{}yrs'.format(niter,ocean_flag,sim_years))
+
 while os.path.isfile(rmext(filename)+'.bin'):
+    cloud_filename = constants.get_art_forcing_filename(filename,forcing = 'cloud', output_path = constants.cloud_folder()+'/cld.artificial.iteration')
     # Setting figures output directories
     outdir_abs=os.path.join(outdir,'iter{}'.format(niter),'absolute')
     outdir_diff=os.path.join(outdir,'iter{}'.format(niter),'diff_'+name_base)
@@ -40,16 +42,22 @@ while os.path.isfile(rmext(filename)+'.bin'):
 
     # Import data
     data = from_binary(filename)
+    cld = from_binary(cloud_filename).cloud
 
     print('Plotting Iter. {}...'.format(niter))
     # ANNUAL MEAN
     rms_a.append(data.annual_mean().anomalies(data_base).rms().tsurf.values)
     data[['tsurf','precip']].annual_mean().plotall(outpath=outdir_abs)
+    cld.annual_mean().plotvar(outpath=outdir_abs)
     data[['tsurf','precip']].annual_mean().anomalies(data_base).plotall(outpath=outdir_diff)
+    cld.annual_mean().anomalies().plotvar(outpath=outdir_diff)
+
     # SEASONAL CYCLE
     rms_s.append(data.seasonal_cycle().anomalies(data_base).rms().tsurf.values)
     data[['tsurf','precip']].seasonal_cycle().plotall(outpath=outdir_abs)
+    cld.seasonal_cycle().plotvar(outpath=outdir_abs)
     data[['tsurf','precip']].seasonal_cycle().anomalies(data_base).plotall(outpath=outdir_diff)
+    cld.seasonal_cycle().anomalies().plotvar(outpath=outdir_diff)
 
     niter += 1
     filename = os.path.join(constants.output_folder(),
