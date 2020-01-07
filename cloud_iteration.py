@@ -1,12 +1,7 @@
 from myfuncs import * # Import self defined classes and function
 
-r_cld=from_binary(constants.greb_folder()+'/r_calibration').r ; corr = 0.1
-# r_cld=from_binary('/Users/dmar0022/Desktop/dietmar_script/data/greb.cloud.sensitivity.best-guess.gad').rcld
-# r_cld.coords['time']=np.arange(1,13)
-# r_cld=r_cld.interp(time=np.linspace(1,12,730),method='linear')
-# r_cld.coords['time']=constants.t() ; corr = 0.2
-
-# corr = 0.2 #correction factor (0.1 for my r_cld, 0.2 for dietmar's)
+r_cld=from_binary(constants.greb_folder()+'/r_calibration').r
+corr = 0.1
 
 t_init_fname = constants.output_folder()+'/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs'
 

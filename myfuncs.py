@@ -12,6 +12,7 @@ import cartopy.feature as cfeature
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 from collections.abc import Iterable
+from regionmask.defined_regions import srex as srex_regions
 
 class Dataset(xr.Dataset):
     '''
@@ -316,6 +317,14 @@ class Dataset(xr.Dataset):
     def group_by(self,time_group,copy=True,update_attrs=True):
         return group_by(self,time_group,copy=copy,update_attrs=update_attrs)
 
+    def srex_mean(self,copy=True):
+        mask=constants.srex_regions.mask()
+        if copy: self=self.copy()
+        new=self.groupby(mask).apply(global_mean)
+        new.coords['srex_abbrev'] = ('srex_region', srex_regions.abbrevs)
+        new.coords['srex_name'] = ('srex_region', srex_regions.names)
+        return new
+
 class DataArray(xr.DataArray):
     '''
     Wrapper for xarray.DataArray class in order to add user-defined functions
@@ -378,12 +387,12 @@ class DataArray(xr.DataArray):
         attrs=self.attrs
         return DataArray(other%xr.DataArray(self),attrs=attrs)
 
-    def plotvar(self, projection = None, levels = None, cmap = None,
-                outpath = None, name= None, statistics=True, title = None,
-                cbar_kwargs = None,
+    def plotvar(self, projection = None, outpath = None,
+                name = None, title = None, statistics=True,
                 coast_kwargs = None,
                 land_kwargs = None,
-                save_kwargs = None):
+                save_kwargs = None,
+                **contourf_kwargs):
 
         '''
         Plots GREB variables with associated color maps, scales and projections.
@@ -413,21 +422,29 @@ class DataArray(xr.DataArray):
                 name=name+'.anom'
             return title,name,units
 
-        if projection is None: projection = ccrs.Robinson()
-        if cmap is None: cmap = self.get_param()['cmap']
         if title is None: title = _get_var(self)[0]
         name = _get_var(self)[1] if name is None else '_'.join([name,_get_var(self)[1]])
         units = _get_var(self)[2]
-        if levels is None: levels = self.get_param()['levels']
-        cbticks = self.get_param()['cbticks']
-        extend = self.get_param()['extend']
 
-        if cbar_kwargs is not None:
-            cbar_kwargs = {'orientation':'horizontal', 'extend':extend, 'label':units,
-                           'ticks':cbticks, **cbar_kwargs}
-        else:
-            cbar_kwargs = {'orientation':'horizontal', 'extend':extend, 'label':units,
-                           'ticks':cbticks}
+        new_contourf_kwargs = contourf_kwargs
+        if projection is None: projection = ccrs.Robinson()
+        if 'ax' not in contourf_kwargs:
+            new_contourf_kwargs['ax'] = plt.axes(projection=projection)
+        if 'cmap' not in contourf_kwargs:
+            new_contourf_kwargs['cmap'] = self.get_param()['cmap']
+        if ('levels' not in contourf_kwargs) and ('norm' not in contourf_kwargs):
+            new_contourf_kwargs['levels'] = self.get_param()['levels']
+        if 'extend' not in contourf_kwargs:
+            new_contourf_kwargs['extend'] = self.get_param()['extend']
+
+        if ('add_colorbar' not in contourf_kwargs):contourf_kwargs['add_colorbar']=True
+        if contourf_kwargs['add_colorbar']==True:
+            cbar_kwargs = {'orientation':'horizontal', 'label':units}
+            if 'cbar_kwargs' in contourf_kwargs:
+                cbar_kwargs.update(contourf_kwargs['cbar_kwargs'])
+            if 'ticks' not in cbar_kwargs:
+                cbar_kwargs['ticks'] = self.get_param()['cbticks']
+            new_contourf_kwargs['cbar_kwargs']=cbar_kwargs
 
         if land_kwargs is not None:
             land_kwargs = {'edgecolor':'face', 'facecolor':'black', **land_kwargs}
@@ -446,12 +463,8 @@ class DataArray(xr.DataArray):
         else:
             save_kwargs = {'dpi':300, 'bbox_inches':'tight'}
 
-        plt.axes(projection=projection)
-        self._to_contiguous_lon().plot.contourf(transform=ccrs.PlateCarree(),
-        levels = levels,
-        extend= extend,
-        cmap = cmap,
-        cbar_kwargs=cbar_kwargs)
+        im=self._to_contiguous_lon().plot.contourf(transform=ccrs.PlateCarree(),
+                                                    **new_contourf_kwargs)
 
         plt.gca().add_feature(cfeature.COASTLINE,**coast_kwargs)
         if (self.name == 'tocean'):
@@ -462,10 +475,12 @@ class DataArray(xr.DataArray):
             txt = ('gmean = {:.3f}'+'\n'+'rms = {:.3f}').format(self.global_mean().values,self.rms().values)
             plt.text(1.05,1,txt,verticalalignment='top',horizontalalignment='right',
                      transform=plt.gca().transAxes,fontsize=6)
+        axis=plt.gca()
         if outpath is not None:
             plt.savefig(os.path.join(outpath,'.'.join([name, 'png'])),
                         format = 'png',**save_kwargs)
             plt.close()
+        return im
 
     def get_param(self):
         '''
@@ -655,6 +670,7 @@ class DataArray(xr.DataArray):
         if self.attrs['units'] == 'K':
             self.attrs['units'] = 'C'
             attrs=self.attrs
+            if 'anomalies' in self.attrs: return self
             newarray=self-273.15
             newarray.attrs = attrs
             return newarray
@@ -666,6 +682,14 @@ class DataArray(xr.DataArray):
 
     def group_by(self,time_group,copy=True,update_attrs=True):
         return group_by(self,time_group,copy=copy,update_attrs=update_attrs)
+
+    def srex_mean(self,copy=True):
+        mask=constants.srex_regions.mask()
+        if copy: self=self.copy()
+        new=self.groupby(mask).apply(global_mean)
+        new.coords['srex_abbrev'] = ('srex_region', srex_regions.abbrevs)
+        new.coords['srex_name'] = ('srex_region', srex_regions.names)
+        return new
 
 class constants:
     '''
@@ -903,7 +927,7 @@ class constants:
         '''
 
         sc_filename = rmext(os.path.split(sc_filename)[1])
-        if 'yrs' in sc_filename.split('_')[-1]:
+        if sc_filename.endswith('yrs'):
             sc_filename = '_'.join(sc_filename.split('_')[:-1])
         if forcing is None:
             if 'exp-930.geoeng.' in sc_filename:
@@ -986,7 +1010,20 @@ class constants:
         mask.data=np.where(mask<=0,False,True)
         return mask
 
+    class srex_regions:
+        def __init__(self):
+            pass
 
+        @staticmethod
+        def mask(name=None):
+            if name is None: name='srex_region'
+            return DataArray(srex_regions.mask(constants.def_DataArray(),wrap_lon=True),name=name)
+
+        @staticmethod
+        def plot(**kwargs):
+            if 'proj' not in kwargs: kwargs['proj']=ccrs.Robinson()
+            if 'label' not in kwargs: kwargs['label']='abbrev'
+            srex_regions.plot(**kwargs)
 
 def input_(def_input,argv=1):
     '''
@@ -1461,8 +1498,15 @@ def global_mean(x,copy=True,update_attrs=True):
         x.attrs['global_mean'] = 'Computed global mean'
         if check_xarray(x,'Dataset'):
             for var in x: x._variables[var].attrs['global_mean'] = 'Computed global mean'
-    weights = np.cos(np.deg2rad(x.lat))
-    return x.average(dim='lat',weights=weights,keep_attrs=True).mean('lon',keep_attrs=True).squeeze()
+    if 'lat' in x.coords and 'lon' in x.coords:
+        weights = np.cos(np.deg2rad(x.lat))
+        return x.average(dim='lat',weights=weights,keep_attrs=True).mean('lon').squeeze()
+    elif 'stacked_lat_lon' in x.coords:
+        weights = np.cos(np.deg2rad(x.lat))
+        return x.average(dim='stacked_lat_lon',weights=weights,keep_attrs=True).squeeze()
+    else:
+        raise Exception('Impossible to perform global mean, no lat and lon dims.')
+
 
 def seasonal_cycle(x,copy=True,update_attrs=True):
     '''
