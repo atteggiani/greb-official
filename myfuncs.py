@@ -299,6 +299,7 @@ class Dataset(xr.Dataset):
     def average(self, dim=None, weights=None,**kwargs):
         if not check_xarray(self, 'Dataset'):
             exception_xarray(type='Dataset')
+        if 'keep_attrs' not in kwargs: kwargs.update({'keep_attrs':True})
         return self.apply(average, dim=dim, weights=weights,**kwargs)
 
     def global_mean(self,copy=True,update_attrs=True):
@@ -479,7 +480,7 @@ class DataArray(xr.DataArray):
         if outpath is not None:
             plt.savefig(os.path.join(outpath,'.'.join([name, 'png'])),
                         format = 'png',**save_kwargs)
-            plt.close()
+            # plt.close()
         return im
 
     def get_param(self):
@@ -657,6 +658,7 @@ class DataArray(xr.DataArray):
         return anomalies(self,x_base=base,copy=copy,update_attrs=update_attrs)
 
     def average(self, dim=None, weights=None,**kwargs):
+        if 'keep_attrs' not in kwargs: kwargs.update({'keep_attrs':True})
         return average(self, dim=dim, weights=weights,**kwargs)
 
     def global_mean(self,copy=True,update_attrs=True):
@@ -1500,7 +1502,7 @@ def global_mean(x,copy=True,update_attrs=True):
             for var in x: x._variables[var].attrs['global_mean'] = 'Computed global mean'
     if 'lat' in x.coords and 'lon' in x.coords:
         weights = np.cos(np.deg2rad(x.lat))
-        return x.average(dim='lat',weights=weights,keep_attrs=True).mean('lon').squeeze()
+        return x.average(dim='lat',weights=weights,keep_attrs=True).mean('lon',keep_attrs=True).squeeze()
     elif 'stacked_lat_lon' in x.coords:
         weights = np.cos(np.deg2rad(x.lat))
         return x.average(dim='stacked_lat_lon',weights=weights,keep_attrs=True).squeeze()
