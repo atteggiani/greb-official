@@ -257,8 +257,8 @@ module mo_diagnostics
 &                                        ftmn, fqmn, icmn, Tomn
 
 ! declare output fields
-  real, dimension(xdim,ydim)          :: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm
-  real, dimension(xdim,ydim,12)       :: Tmn_ctrl, Tamn_ctrl, Tomn_ctrl
+  real, dimension(xdim,ydim)          :: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm, swmm
+  real, dimension(xdim,ydim,12)       :: Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, swmn_ctrl
   real, dimension(xdim,ydim,12)       :: qmn_ctrl, icmn_ctrl, prmn_ctrl, evamn_ctrl, qcrclmn_ctrl
 
 end module mo_diagnostics
@@ -505,7 +505,7 @@ subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, 
   ! sea ice heat capacity
   call seaice(Ts0)
   ! write output
-  call output(it, ionum, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl)
+  call output(it, ionum, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl, sw)
   ! diagnostics: annual means plots
   call diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
 
@@ -1426,21 +1426,22 @@ subroutine diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, LW_surf,
 end subroutine diagonstics
 
 !+++++++++++++++++++++++++++++++++++++++
-subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl)
+subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl, sw)
 !+++++++++++++++++++++++++++++++++++++++
 !    write output
 
   USE mo_numerics,     ONLY: xdim, ydim, jday_mon, ndt_days, nstep_yr, time_scnr &
 &                          , time_ctrl, ireal, dt
   USE mo_physics,      ONLY: jday, log_exp, log_control, r_qviwv, wz_vapor
-  use mo_diagnostics,  ONLY: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm &
-&                          , Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, qmn_ctrl, icmn_ctrl, prmn_ctrl, evamn_ctrl, qcrclmn_ctrl
+  use mo_diagnostics,  ONLY: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm, swmm &
+&                          , Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, qmn_ctrl, icmn_ctrl &
+&                          , prmn_ctrl, evamn_ctrl, qcrclmn_ctrl, swmn_ctrl
 
   ! declare temporary fields
-  real, dimension(xdim,ydim)  :: Ts0, Ta0, To0, q0, ice_cover, dq_rain, dq_eva, dq_crcl
+  real, dimension(xdim,ydim)  :: Ts0, Ta0, To0, q0, ice_cover, dq_rain, dq_eva, dq_crcl, sw
 
   ! diagnostics: monthly means
-  Tmm=Tmm+Ts0; Tamm=Tamm+ta0; Tomm=Tomm+to0; qmm=qmm+q0; icmm=icmm+ice_cover;
+  Tmm=Tmm+Ts0; Tamm=Tamm+ta0; Tomm=Tomm+to0; qmm=qmm+q0; icmm=icmm+ice_cover; swmm=swmm+sw;
   prmm=prmm+dq_rain*(r_qviwv*wz_vapor);          ! kg/m2/s
   evamm=evamm+dq_eva*(r_qviwv*wz_vapor);         ! kg/m2/s
   qcrclmm=qcrclmm+dq_crcl*(r_qviwv*wz_vapor)/dt; ! kg/m2/s
@@ -1454,14 +1455,15 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
          if (log_exp .eq. 1 .or. log_exp .eq. 230 &
 &            .or. log_exp .eq. 20 .or. log_exp .eq. 930) then
              irec=irec+1;
-             write(iunit,rec=8*irec-7)  Tmm/ndm
-             write(iunit,rec=8*irec-6)  Tamm/ndm
-             write(iunit,rec=8*irec-5)  Tomm/ndm
-             write(iunit,rec=8*irec-4)   qmm/ndm
-             write(iunit,rec=8*irec-3)  icmm/ndm
-             write(iunit,rec=8*irec-2)  prmm/ndm
-             write(iunit,rec=8*irec-1) evamm/ndm
-             write(iunit,rec=8*irec) qcrclmm/ndm
+             write(iunit,rec=9*irec-8)  Tmm/ndm
+             write(iunit,rec=9*irec-7)  Tamm/ndm
+             write(iunit,rec=9*irec-6)  Tomm/ndm
+             write(iunit,rec=9*irec-5)   qmm/ndm
+             write(iunit,rec=9*irec-4)  icmm/ndm
+             write(iunit,rec=9*irec-3)  prmm/ndm
+             write(iunit,rec=9*irec-2) evamm/ndm
+             write(iunit,rec=9*irec-1) qcrclmm/ndm
+             write(iunit,rec=9*irec) swmm/ndm
          end if
          Tmn_ctrl(:,:,mon)     =   Tmm/ndm
          Tamn_ctrl(:,:,mon)    =  Tamm/ndm
@@ -1471,8 +1473,9 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
          prmn_ctrl(:,:,mon)    =  prmm/ndm
          evamn_ctrl(:,:,mon)   = evamm/ndm
          qcrclmn_ctrl(:,:,mon) = qcrclmm/ndm
+         swmn_ctrl(:,:,mon) = swmm/ndm
      end if
-     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
+     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.; swmm=0.;
      mon=mon+1; if (mon==13) mon=1
   end if
 
@@ -1483,14 +1486,16 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
      ndm=jday_mon(mon)*ndt_days
      irec=irec+1;
      ! write(iunit,rec=irec)   Tmm/ndm
-     write(iunit,rec=8*irec-7)   Tmm/ndm
-     write(iunit,rec=8*irec-6)  Tamm/ndm
-     write(iunit,rec=8*irec-5)  Tomm/ndm
-     write(iunit,rec=8*irec-4)   qmm/ndm
-     write(iunit,rec=8*irec-3)  icmm/ndm
-     write(iunit,rec=8*irec-2)  prmm/ndm
-     write(iunit,rec=8*irec-1) evamm/ndm
-     write(iunit,rec=8*irec) qcrclmm/ndm
+
+     write(iunit,rec=9*irec-8)  Tmm/ndm
+     write(iunit,rec=9*irec-7)  Tamm/ndm
+     write(iunit,rec=9*irec-6)  Tomm/ndm
+     write(iunit,rec=9*irec-5)   qmm/ndm
+     write(iunit,rec=9*irec-4)  icmm/ndm
+     write(iunit,rec=9*irec-3)  prmm/ndm
+     write(iunit,rec=9*irec-2) evamm/ndm
+     write(iunit,rec=9*irec-1) qcrclmm/ndm
+     write(iunit,rec=9*irec) swmm/ndm
 
      ! write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
      ! write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
@@ -1510,7 +1515,7 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
      ! write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
      ! write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
      ! write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
-     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
+     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.; swmm=0.;
      mon=mon+1; if (mon==13) mon=1
   end if
 

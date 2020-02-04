@@ -9,6 +9,7 @@ import sys
 from datetime import datetime as dtime
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.colors as colors
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 from collections.abc import Iterable
@@ -246,9 +247,14 @@ class Dataset(xr.Dataset):
         else:
             return Dataset(self._copy_listed(np.asarray(key)),attrs=self.attrs)
 
-    def plotall(self, outpath = None, projection = None, levels = None,
-                cmap = None, statistics=True, title = None, cbar_kwargs = None,
-                coast_kwargs = None, land_kwargs = None, save_kwargs = None):
+    def plotall(self,
+                projection = None,
+                outpath = None,
+                names = None,
+                titles = None,
+                statistics=True,
+                nlev=None,
+                save_kwargs = None):
         '''
         Plots all the variables of the Dataset using DataArray.plotvar function.
 
@@ -267,25 +273,18 @@ class Dataset(xr.Dataset):
                 return x*def_len
 
         vars=[v for v in self]
-        projection = _check_length(projection,len(vars))
-        levels = _check_length(levels,len(vars))
-        cmap = _check_length(cmap,len(vars))
-        outpath = _check_length(outpath,len(vars))
-        statistics = _check_length(statistics,len(vars))
-        title = _check_length(title,len(vars))
-        cbar_kwargs = _check_length(cbar_kwargs,len(vars))
-        coast_kwargs = _check_length(coast_kwargs,len(vars))
-        land_kwargs = _check_length(land_kwargs,len(vars))
-        save_kwargs = _check_length(save_kwargs,len(vars))
+        names = _check_length(names,len(vars))
+        titles = _check_length(titles,len(vars))
 
-        for var,pr,lv,cm,out,st,tit,cb_kw,co_kw,la_kw,sv_kw in zip(self,projection, \
-                        levels,cmap,outpath,statistics,title,cbar_kwargs, \
-                        coast_kwargs,land_kwargs,save_kwargs):
+        for var,name,tit in zip(self,names,titles):
             plt.figure()
-            self[var].plotvar(projection=pr,levels=lv,cmap=cm,outpath=out,statistics=st,
-                        title=tit,cbar_kwargs=cb_kw,coast_kwargs=co_kw,
-                        land_kwargs=la_kw,save_kwargs=sv_kw)
-
+            self[var].plotvar(projection = projection,
+                              outpath = outpath,
+                              name = name,
+                              title = tit,
+                              statistics=statistics,
+                              nlev=nlev,
+                              save_kwargs = save_kwargs)
 
     def annual_mean(self,copy=True,update_attrs=True):
         return annual_mean(self,copy=copy,update_attrs=update_attrs)
@@ -388,8 +387,12 @@ class DataArray(xr.DataArray):
         attrs=self.attrs
         return DataArray(other%xr.DataArray(self),attrs=attrs)
 
-    def plotvar(self, projection = None, outpath = None,
-                name = None, title = None, statistics=True,
+    def plotvar(self, projection = None,
+                outpath = None,
+                name = None,
+                title = None,
+                statistics=True,
+                nlev=None,
                 coast_kwargs = None,
                 land_kwargs = None,
                 save_kwargs = None,
@@ -423,8 +426,13 @@ class DataArray(xr.DataArray):
                 name=name+'.anom'
             return title,name,units
 
+        param=self._get_param(nlev=nlev)
+        self=param['self']
         if title is None: title = _get_var(self)[0]
-        name = _get_var(self)[1] if name is None else '_'.join([name,_get_var(self)[1]])
+        if name is None: name = _get_var(self)[1]
+        if nlev is None:
+            nlev=100
+        # name = _get_var(self)[1] if name is None else '_'.join([name,_get_var(self)[1]])
         units = _get_var(self)[2]
 
         new_contourf_kwargs = contourf_kwargs
@@ -432,19 +440,19 @@ class DataArray(xr.DataArray):
         if 'ax' not in contourf_kwargs:
             new_contourf_kwargs['ax'] = plt.axes(projection=projection)
         if 'cmap' not in contourf_kwargs:
-            new_contourf_kwargs['cmap'] = self.get_param()['cmap']
+            new_contourf_kwargs['cmap'] = param['cmap']
         if ('levels' not in contourf_kwargs) and ('norm' not in contourf_kwargs):
-            new_contourf_kwargs['levels'] = self.get_param()['levels']
-        if 'extend' not in contourf_kwargs:
-            new_contourf_kwargs['extend'] = self.get_param()['extend']
-
+            if param['levels'] is None:
+                new_contourf_kwargs['levels'] = nlev
+            else:
+                new_contourf_kwargs['levels'] = param['levels']
         if ('add_colorbar' not in contourf_kwargs):contourf_kwargs['add_colorbar']=True
         if contourf_kwargs['add_colorbar']==True:
             cbar_kwargs = {'orientation':'horizontal', 'label':units}
             if 'cbar_kwargs' in contourf_kwargs:
                 cbar_kwargs.update(contourf_kwargs['cbar_kwargs'])
-            if 'ticks' not in cbar_kwargs:
-                cbar_kwargs['ticks'] = self.get_param()['cbticks']
+            if ('ticks' not in cbar_kwargs):
+                cbar_kwargs['ticks'] = param['cbticks']
             new_contourf_kwargs['cbar_kwargs']=cbar_kwargs
 
         if land_kwargs is not None:
@@ -483,163 +491,191 @@ class DataArray(xr.DataArray):
             # plt.close()
         return im
 
-    def get_param(self):
+    def _get_param(self,nlev=None):
         '''
         Function to set parameter for plotting
 
         '''
 
+        cmap_tsurf=constants.colormaps.Div_tsurf()
+        cmap_precip=constants.colormaps.Div_precip()
         keys=self.attrs.keys()
         name=self.name
-
+        if nlev is None: nlev=100
         levels = None
         cbticks = None
-        extend = None
         cmap = None
         # TATMOS
         if name == 'tatmos':
             cmap = cm.RdBu_r
-            extend = 'both'
             if 'anomalies' in keys:
-                levels = np.arange(-2,2+0.2,0.2)
+                cmap = cmap_tsurf
+                levels = np.linspace(-2,2,nlev)
                 cbticks = np.arange(-2,2+0.4,0.4)
             else:
                 if 'annual_mean' in keys:
-                    levels = np.arange(223,323+5,5)
+                    levels = np.linspace(223,323,nlev)
                     cbticks = np.arange(223,323+10,10)
                 elif 'seasonal_cycle' in keys:
-                    levels = np.arange(-20,20+2,2)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-20,20,nlev)
                     cbticks = np.arange(-20,20+4,4)
         # TSURF
         elif name == 'tsurf':
             cmap = cm.RdBu_r
-            extend = 'both'
             if 'anomalies' in keys:
-                levels = np.arange(-2,2+0.2,0.2)
+                cmap = cmap_tsurf
+                levels = np.linspace(-2,2,nlev)
                 cbticks = np.arange(-2,2+0.4,0.4)
             else:
                 if 'annual_mean' in keys:
-                    levels = np.arange(223,323+5,5)
+                    levels = np.linspace(223,323,nlev)
                     cbticks = np.arange(223,323+10,10)
                 elif 'seasonal_cycle' in keys:
-                    levels = np.arange(-20,20+2,2)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-20,20,nlev)
                     cbticks = np.arange(-20,20+4,4)
         # TOCEAN
         elif name == 'tocean':
             cmap = cm.RdBu_r
-            extend = 'both'
             if 'anomalies' in keys:
-                levels = np.arange(-1,1+0.1,0.1)
+                cmap = cmap_tsurf
+                levels = np.linspace(-1,1,nlev)
                 cbticks = np.arange(-1,1+0.2,0.2)
             else:
                 if 'annual_mean' in keys:
-                    levels = np.arange(273,303+5,3)
+                    levels = np.linspace(273,303,nlev)
                     cbticks = np.arange(273,303+10,3)
                 elif 'seasonal_cycle' in keys:
-                    levels = np.arange(-1,1+1e-1,1e-1)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-1,1,nlev)
                     cbticks = np.arange(-1,1+2e-1,2e-1)
         # PRECIP
         elif name == 'precip':
             cmap = cm.GnBu
-            extend = 'both'
             if 'anomalies' in keys:
-                cmap = cm.RdBu_r
-                levels = np.arange(-1,1+0.1,0.1)
+                cmap = cmap_precip
+                levels = np.linspace(-1,1,nlev)
                 cbticks = np.arange(-1,1+0.2,0.2)
             else:
                 if 'annual_mean' in keys:
-                    extend = 'max'
-                    levels = np.arange(0,9+1,1)
+                    levels = np.linspace(0,9,nlev)
                     cbticks = np.arange(0,9+1,1)
                 elif 'seasonal_cycle' in keys:
-                    cmap = cm.RdBu_r
-                    levels = np.arange(-6,6+1,1)
+                    cmap = cmap_precip
+                    levels = np.linspace(-6,6,nlev)
                     cbticks = np.arange(-6,6+1,1)
         # EVA
         elif name == 'eva':
             cmap = cm.GnBu
-            extend = 'both'
             if 'anomalies' in keys:
-                cmap = cm.RdBu_r
-                levels = np.arange(-1,1+0.1,0.1)
+                cmap = cmap_precip
+                levels = np.linspace(-1,1,nlev)
                 cbticks = np.arange(-1,1+0.2,0.2)
             else:
                 if 'annual_mean' in keys:
                     cmap = cm.Blues
-                    levels = np.arange(0,10+1,1)
+                    levels = np.linspace(0,10,nlev)
                     cbticks = np.arange(0,10+1,1)
                 elif 'seasonal_cycle' in keys:
-                    cmap = cm.RdBu_r
-                    levels = np.arange(-3,3+0.5,0.5)
+                    cmap = cmap_precip
+                    levels = np.linspace(-3,3,nlev)
                     cbticks = np.arange(-3,3+0.5,0.5)
         # QCRCL
         elif name == 'qcrcl':
             cmap = cm.RdBu_r
-            extend = 'both'
             if 'anomalies' in keys:
-                levels = np.arange(-1,1+0.1,0.1)
+                cmap = cmap_tsurf
+                levels = np.linspace(-1,1,nlev)
                 cbticks = np.arange(-1,1+0.2,0.2)
             else:
                 if 'annual_mean' in keys:
-                    levels = np.arange(-8,8+1,1)
+                    levels = np.linspace(-8,8,nlev)
                     cbticks = np.arange(-8,8+2,2)
                 elif 'seasonal_cycle' in keys:
-                    levels = np.arange(-6,6+1,1)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-6,6,nlev)
                     cbticks = np.arange(-6,6+1,1)
         # VAPOR
         elif name == 'vapor':
             cmap = cm.RdBu_r
-            extend = 'both'
             if 'anomalies' in keys:
-                levels = np.arange(-5e-3,5e-3+5e-4,5e-4)
+                cmap = cmap_tsurf
+                levels = np.linspace(-5e-3,5e-3,nlev)
                 cbticks = np.arange(-5e-3,5e-3+1e-3,1e-3)
             else:
                 if 'annual_mean' in keys:
                     cmap = cm.Blues
-                    levels = np.arange(0,0.02+0.002,0.002)
+                    levels = np.linspace(0,0.02,nlev)
                     cbticks = np.arange(0,0.02+0.002,0.002)
                 elif 'seasonal_cycle' in keys:
-                    levels = np.arange(-0.01,0.01+0.001,0.001)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-0.01,0.01,nlev)
                     cbticks = np.arange(-0.01,0.01+0.0012,0.002)
         # ICE
         elif name == 'ice':
             cmap = cm.Blues_r
-            extend = 'max'
             if 'anomalies' in keys:
-                cmap = cm.RdBu_r
-                extend = 'both'
-                levels = np.arange(-1,1+0.1,0.1)
+                cmap = cmap_tsurf
+                levels = np.linspace(-1,1,nlev)
                 cbticks = np.arange(-1,1+0.2,0.2)
             else:
                 if 'annual_mean' in keys:
-                    levels = np.arange(0,1+0.05,0.05)
+                    levels = np.linspace(0,1,nlev)
                     cbticks = np.arange(0,1+0.1,0.1)
                 elif 'seasonal_cycle' in keys:
-                    cmap = cm.RdBu_r
-                    extend = 'both'
-                    levels = np.arange(0,1+0.05,0.05)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(0,1,nlev)
                     cbticks = np.arange(0,1+0.1,0.1)
+        # SW
+        elif name == 'sw':
+            cmap = cm.YlOrRd
+            if 'anomalies' in keys:
+                cmap = cmap_tsurf
+                levels = np.linspace(-5,5,nlev)
+                cbticks = np.arange(-5,5+1,1)
+            else:
+                if 'annual_mean' in keys:
+                    levels = np.linspace(50,350,nlev)
+                    cbticks = np.arange(50,350+50,50)
+                elif 'seasonal_cycle' in keys:
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-180,180,nlev)
+                    cbticks = np.arange(-180,180+40,40)
         # CLOUD
         elif name == 'cloud':
             cmap = cm.Greys_r
-            extend = 'neither'
             if 'anomalies' in keys:
-                cmap = cm.RdBu_r
-                extend = 'both'
-                levels = np.arange(-0.5,0.5+0.05,0.05)
+                cmap = cmap_tsurf
+                levels = np.linspace(-0.5,0.5,nlev)
                 cbticks = np.arange(-0.5,0.5+0.1,0.1)
             else:
                 if 'annual_mean' in keys:
-                    levels = np.arange(0,1+0.05,0.05)
+                    levels = np.linspace(0,1,nlev)
                     cbticks = np.arange(0,1+0.1,0.1)
                 elif 'seasonal_cycle' in keys:
-                    cmap = cm.RdBu_r
-                    extend = 'both'
-                    levels = np.arange(-1,1+0.1,0.1)
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-1,1,nlev)
                     cbticks = np.arange(-1,1+0.2,0.2)
         # SOLAR
-        # not yet implemented
-        return {'levels':levels,'cbticks':cbticks,'extend':extend,'cmap':cmap}
+        elif name == 'solar':
+            self=constants.def_DataArray(data=np.broadcast_to(self,[constants.dx()]+list(self.shape)).transpose(),
+                                         dims=('lat','lon'),
+                                         attrs=self.attrs)
+            cmap = cm.YlOrRd
+            if 'anomalies' in keys:
+                cmap = cmap_tsurf
+                levels = np.linspace(-5,5,nlev)
+                cbticks = np.arange(-5,5+1,1)
+            else:
+                if 'annual_mean' in keys:
+                    levels = np.linspace(150,420,nlev)
+                    cbticks = np.arange(150,420+40,40)
+                elif 'seasonal_cycle' in keys:
+                    cmap = cmap_tsurf
+                    levels = np.linspace(-230,230,nlev)
+                    cbticks = np.arange(-230,230+40,40)
+        return {'self':self,'levels':levels,'cbticks':cbticks,'cmap':cmap}
 
     def _to_contiguous_lon(self):
         '''
@@ -869,8 +905,7 @@ class constants:
     def to_shape_for_bin(data,type='cloud'):
         def_sh = constants.shape_for_bin(type)
         sh=data.shape
-        if len(sh) != 3: raise Exception('data must be 3D, in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
-        if len(set(sh)) != 3: raise Exception('data shape must be in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
+        if (len(sh) != 3) or len(set(sh)) != 3: raise Exception('data must be 3D, in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
         if ((sh[0] not in def_sh) or (sh[1] not in def_sh) or (sh[2] not in def_sh)):
             raise Exception('data shape must be in the form {}x{}x{}'.format(def_sh[0],def_sh[1],def_sh[2]))
         if sh != def_sh:
@@ -1012,6 +1047,37 @@ class constants:
         mask.data=np.where(mask<=0,False,True)
         return mask
 
+    class colormaps:
+        def __init__(self):
+            pass
+
+        def add_white(colormap,name=None):
+            if name is None:
+                name = 'new_'+colormap.name
+            cm0=colormap
+            col1=cm0(np.linspace(0,0.4,100))
+            w1=np.array(list(map(lambda x: np.linspace(x,1,28),col1[-1]))).transpose()
+            col2=cm0(np.linspace(0.6,1,100))
+            w2=np.array(list(map(lambda x: np.linspace(1,x,28),col2[0]))).transpose()
+            cols1=np.vstack([col1,w1,w2,col2])
+            return colors.LinearSegmentedColormap.from_list(name, cols1)
+
+        @staticmethod
+        def Div_tsurf():
+            return constants.colormaps.add_white(cm.Spectral_r,name='Div_tsurf')
+
+        @staticmethod
+        def Div_tsurf_r():
+            return constants.colormaps.Div_tsurf().reversed()
+
+        @staticmethod
+        def Div_precip():
+            return constants.colormaps.add_white(cm.twilight_shifted_r,name='Div_precip')
+
+        @staticmethod
+        def Div_tsurf_r():
+            return constants.colormaps.Div_precip().reversed()
+
     class srex_regions:
         def __init__(self):
             pass
@@ -1069,7 +1135,6 @@ def ignore_warnings():
     '''
     Suppress all the warning messages
     '''
-
     if not sys.warnoptions:
         warnings.simplefilter("ignore")
 
@@ -1321,11 +1386,14 @@ def parse_greb_var(x,update_attrs=True):
         elif name == 'ice':
             x.attrs['long_name']='Ice'
             x.attrs['units']=''
+        elif name == 'sw':
+            x.attrs['long_name']='SW Radiation Output'
+            x.attrs['units']='W/m2'
         elif name == 'cloud':
             x.attrs['long_name']='Clouds'
             x.attrs['units']=''
         elif name == 'solar':
-            x.attrs['long_name']='SW Radiation'
+            x.attrs['long_name']='SW Radiation Input'
             x.attrs['units']='W/m2'
 
         if update_attrs:
@@ -1924,13 +1992,6 @@ def create_clouds(time = None, longitude = None, latitude = None, value = 1,
       Creates artificial cloud file ('.bin' and '.ctl' files).
 
     '''
-    # Define constants
-    def_t=constants.t()
-    def_lat=constants.lat()
-    def_lon=constants.lon()
-    dt = constants.dt()
-    dx = constants.dx()
-    dy = constants.dy()
 
     if cloud_base is not None:
         if isinstance(cloud_base,str):
@@ -2084,17 +2145,11 @@ def create_solar(time = None, latitude = None, value = 1,
 
     '''
 
-    # Define constants
-    def_t=constants.t()
-    def_lat=constants.lat()
-    dt = constants.dt()
-    dy = constants.dy()
-
     if solar_base is not None:
         if isinstance(solar_base,str):
             data=from_binary(solar_base).solar
         elif isinstance(solar_base,np.ndarray):
-            data = constants.def_DataArray(data=constants.to_shape_for_bin(solar_base),name='solar')
+            data = constants.def_DataArray(data=constants.to_shape_for_bin(solar_base,type='solar'),name='solar')
         elif isinstance(solar_base,xr.DataArray):
             data = DataArray(solar_base,attrs=solar_base.attrs)
         else:
@@ -2102,6 +2157,34 @@ def create_solar(time = None, latitude = None, value = 1,
                             ' or a valid path to the solar file.')
     else:
         data = constants.def_DataArray(name='solar')
+
+    mask=True
+    # Check coordinates and constrain them
+    # TIME
+    if time is not None:
+        t_exc = '"time" must be a np.datetime64, datestring or list of np.datetime64 istances or datestrings, in the form [time_min,time_max].\n'+\
+                'Datestring must be in the format "%y-%m-%d".'
+        if isinstance(time,Iterable):
+            if not(isinstance(time,str)) and (len(time) > 2):
+                raise Exception(t_exc)
+            if isinstance(time,str):
+                time = np.datetime64(time)
+                mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
+            else:
+                time = [np.datetime64(t) for t in time]
+                if time[0]==time[1]:
+                    time = time[0]
+                    mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
+                elif time[1]>time[0]:
+                    mask = mask&(data.coords['time']>=time[0])&(data.coords['time']<=time[1])
+                else:
+                    mask = mask&((data.coords['time']>=time[0])|(data.coords['time']<=time[1]))
+        elif isinstance(time,np.datetime64):
+            mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
+        else:
+            raise Exception(t_exc)
+    else:
+        mask=mask&(constants.def_DataArray(np.full(constants.dt(),True),dims='time'))
 
     # LATITUDE
     if latitude is not None:
@@ -2126,30 +2209,8 @@ def create_solar(time = None, latitude = None, value = 1,
                 mask = mask&(data.coords['lat']==data.coords['lat'][np.argmin(abs(data.coords['lat']-latitude))])
         else:
             raise Exception(lat_exc)
-
-    # TIME
-    if time is not None:
-        t_exc = '"time" must be a np.datetime64, datestring or list of np.datetime64 istances or datestrings, in the form [time_min,time_max].\n'+\
-                'Datestring must be in the format "%y-%m-%d".'
-        if isinstance(time,Iterable):
-            if not(isinstance(time,str)) and (len(time) > 2):
-                raise Exception(t_exc)
-            if isinstance(time,str):
-                time = np.datetime64(time)
-                mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
-            else:
-                time = [np.datetime64(t) for t in time]
-                if time[0]==time[1]:
-                    time = time[0]
-                    mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
-                elif time[1]>time[0]:
-                    mask = mask&(data.coords['time']>=time[0])&(data.coords['time']<=time[1])
-                else:
-                    mask = mask&((data.coords['time']>=time[0])|(data.coords['time']<=time[1]))
-        elif isinstance(time,np.datetime64):
-            mask = mask&data.coords['time']==data.coords['time'][np.argmin(abs(data.coords['time']-time))]
-        else:
-            raise Exception(t_exc)
+    else:
+        mask=mask&(constants.def_DataArray(np.full(constants.dy(),True),dims='lat'))
 
     # Change values
     if (isinstance(value,float) or isinstance(value,int) or isinstance(value,np.ndarray)):
@@ -2160,10 +2221,13 @@ def create_solar(time = None, latitude = None, value = 1,
         data=data.where(~mask,value(data))
     else:
         raise Exception('"value" must be a number, numpy.ndarray, xarray.DataArray or function to apply to the "solar_base" (e.g. "lambda x: x*1.1")')
-    # Correct values below 0
+    # Correct value below 0
     data=data.where(data>=0,0)
     # Write .bin and .ctl files
-    vars = {'solar':data.values}
+    if len(data.shape) == 2:
+        vars = {'solar':data.values[...,np.newaxis]}
+    else:
+        vars = {'solar':data.values}
     if outpath is None:
         outpath=constants.solar_folder()+'/sw.artificial.ctl'
     create_bin_ctl(outpath,vars)

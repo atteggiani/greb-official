@@ -1,9 +1,9 @@
 # LIBRARIES
 from myfuncs import *
 from matplotlib.ticker import AutoMinorLocator
-
+ignore_warnings()
 # Read scenario and base file
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2_80yrs.ctl'
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.sw.artificial.frominput_x0.9798_50yrs.ctl'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 
 filename = input_(filename,1)
@@ -28,15 +28,17 @@ if filename_art_forcing:
     print('ARTIFICIAL_FORCING: ' + name_art_forcing)
 
 # Setting figures output directories
-outdir=os.path.join('/Users/dmar0022/university/phd/greb-official/figures',name)
+outdir=os.path.join(constants.figures_folder(),name)
 outdir_absolute=os.path.join(outdir,'absolute')
 outdir_anom=os.path.join(outdir,'diff_'+name_base)
 outdir_global_mean=os.path.join(outdir,'global_mean')
+outdir_art_forcing=os.path.join(outdir,'artificial_forcing')
 
 # Creating figures output directories
 os.makedirs(outdir_absolute,exist_ok=True)
 os.makedirs(outdir_anom,exist_ok=True)
 os.makedirs(outdir_global_mean,exist_ok=True)
+os.makedirs(outdir_art_forcing,exist_ok=True)
 
 # Importing the data
 data = from_binary(filename)
@@ -46,17 +48,17 @@ data_base=None if name_base == 'control.default' else from_binary(filename_base)
 #  Plotting absolute countours
 print('Plotting absolute contours...')
 # annual mean
-data.annual_mean().plotall(outpath=outdir_absolute)
+data.annual_mean().plotall(nlev=100,outpath=outdir_absolute)
 # sesonal cycle
-data.seasonal_cycle().plotall(outpath=outdir_absolute)
+data.seasonal_cycle().plotall(nlev=100,outpath=outdir_absolute)
 
 # ============================================================================ #
 #  Plotting anomalies contours
 print('Plotting anomalies contours...')
 # annual mean
-data.annual_mean().anomalies(data_base).plotall(outpath=outdir_anom)
+data.annual_mean().anomalies(data_base).plotall(nlev=100,outpath=outdir_anom)
 # sesonal cycle
-data.seasonal_cycle().anomalies(data_base).plotall(outpath=outdir_anom)
+data.seasonal_cycle().anomalies(data_base).plotall(nlev=100,outpath=outdir_anom)
 
 # ============================================================================ #
 # Plotting global_mean annual data
@@ -77,7 +79,6 @@ plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
 plt.legend(loc='best')
 plt.grid(which='both',linestyle='--')
 plt.savefig(os.path.join(outdir_global_mean,'tsurf.png'), bbox_inches='tight',dpi=300)
-plt.close()
 
 # PRECIP
 plt.figure()
@@ -92,17 +93,29 @@ plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
 plt.legend(loc='best')
 plt.grid(which='both',linestyle='--')
 plt.savefig(os.path.join(outdir_global_mean,'precip.png'), bbox_inches='tight',dpi=300)
-plt.close()
 
 # ============================================================================ #
-# # Plotting artificial forcing
-# art_forcing=from_binary(filename_art_forcing)[next(iter(from_binary(filename_art_forcing)))]
-# art_forcing.annual_mean().plot()
-# plt.gca().grid()
-# art_forcing.annual_mean().anomalies().plot()
-#
-# plt.gca().set_title('ciao')
-# if filename_art_forcing:
-#     print('Plotting artificial forcing...')
+# Plotting artificial forcing
+if filename_art_forcing:
+    print('Plotting artificial forcing...')
 
-print('Done!!!\n')
+    art_forcing=from_binary(filename_art_forcing)[next(iter(from_binary(filename_art_forcing)))]
+    plt.figure()
+    art_forcing.annual_mean().plotvar(nlev=100,
+                                      outpath=outdir_art_forcing,
+                                      name=name_art_forcing+'.amean')
+    plt.figure()
+    art_forcing.annual_mean().anomalies().plotvar(nlev=100,
+                                      outpath=outdir_art_forcing,
+                                      name=name_art_forcing+'.amean.anom')
+    plt.figure()
+    art_forcing.seasonal_cycle().plotvar(nlev=100,
+                                      outpath=outdir_art_forcing,
+                                      name=name_art_forcing+'.seascyc')
+    plt.figure()
+    art_forcing.seasonal_cycle().anomalies().plotvar(nlev=100,
+                                      outpath=outdir_art_forcing,
+                                      name=name_art_forcing+'.seascyc.anom')
+
+    plt.close('all')
+    print('Done!!!\n')
