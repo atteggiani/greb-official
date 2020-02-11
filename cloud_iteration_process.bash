@@ -48,6 +48,6 @@ while (( $niter <= $tot_iter )); do
     ((niter++))
 done
 echo -e "\nPlotting iterations...\n"
-python ./plot_iter.py $tsurf_init $ocean_flag
+python ./plot_iter.py $tsurf_init 'cloud' $ocean_flag
 echo -e "DONE!!\n"
 exit

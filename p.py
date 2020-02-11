@@ -8,7 +8,7 @@ ignore_warnings()
 nlev=200
 cmap_tsurf=constants.colormaps.Div_tsurf()
 cmap_precip=constants.colormaps.Div_precip()
-r_cld=from_binary('r_calibration').r
+r_cld=from_binary('r_calibration_cloud').r
 srm_filename=os.path.join(constants.output_folder(),
                  'scenario.exp-930.geoeng.cld.artificial.iter20_50yrs')
 CO2x2_filename=os.path.join(constants.scenario_2xCO2())

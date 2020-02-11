@@ -42,7 +42,7 @@ def create_clouds_for_r(dx=4,dy=4):
 def create_r(dx=4,dy=4):
     lat=constants.lat()
     lon=constants.lon()
-    lat_ = np.append(constants.lat()[::dy],constants.lat()[-1])
+    lat_ = np.append(lat[::dy],lat[-1])
     lon_ = np.append(lon[::dx],lon[-1])
     X,Y = np.meshgrid(lat,lon)
     points=list(iproduct(lat_,lon))
@@ -61,9 +61,9 @@ def create_r(dx=4,dy=4):
             cld_name_JJA='_'.join([cld_name,'JJA'])
             cld_name_DJF='_'.join([cld_name,'DJF'])
 
-            fname=constants.get_scenario_filename(cld_name,years_of_simulation=20,input_path=constants.output_folder()+'/r_calibration')
-            fname_JJA=constants.get_scenario_filename(cld_name_JJA,years_of_simulation=20,input_path=constants.output_folder()+'/r_calibration')
-            fname_DJF=constants.get_scenario_filename(cld_name_DJF,years_of_simulation=20,input_path=constants.output_folder()+'/r_calibration')
+            fname=constants.get_scenario_filename(cld_name,years_of_simulation=20,input_path=constants.output_folder()+'/r_calibration_cloud')
+            fname_JJA=constants.get_scenario_filename(cld_name_JJA,years_of_simulation=20,input_path=constants.output_folder()+'/r_calibration_cloud')
+            fname_DJF=constants.get_scenario_filename(cld_name_DJF,years_of_simulation=20,input_path=constants.output_folder()+'/r_calibration_cloud')
 
             dcld=from_binary(os.path.join(constants.cloud_folder(),'r_calibration',cld_name)).cloud.anomalies()
             dcld_JJA=from_binary(os.path.join(constants.cloud_folder(),'r_calibration',cld_name_JJA)).cloud.anomalies()
@@ -107,8 +107,8 @@ def create_r(dx=4,dy=4):
 
     r=r.interp(time=np.linspace(r.time[0],r.time[-1],730),method='linear')
     r_interp=r_interp.interp(time=np.linspace(r_interp.time[0],r_interp.time[-1],730),method='linear')
-    create_bin_ctl(constants.greb_folder()+'/r_calibration_interp',{'r':r_interp})
-    create_bin_ctl(constants.greb_folder()+'/r_calibration',{'r':r})
+    create_bin_ctl(constants.greb_folder()+'/r_calibration_cloud_interp',{'r':r_interp})
+    create_bin_ctl(constants.greb_folder()+'/r_calibration_cloud',{'r':r})
     print('Done!')
 
 create_clouds_for_r()

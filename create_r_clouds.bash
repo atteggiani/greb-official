@@ -70,8 +70,8 @@ for cld_file in $cld_files ; do
 
     # SCENARIO RUN
     # rename scenario run output and move it to output folder
-    mv scenario.bin ../output/r_calibration/scenario.${FILENAME}.bin
-    cat >../output/r_calibration/scenario.${FILENAME}.ctl <<EOF
+    mv scenario.bin ../output/r_calibration_cloud/scenario.${FILENAME}.bin
+    cat >../output/r_calibration_cloud/scenario.${FILENAME}.ctl <<EOF
     dset ^scenario.${FILENAME}.bin
     undef 9.e27
     xdef  96 linear 0 3.75
@@ -85,8 +85,8 @@ EOF
 
     if [ -f 'scenario.gmean.bin' ]
     then
-        mv scenario.gmean.bin ../output/r_calibration/scenario.gmean.${FILENAME}.bin
-        cat >../output/r_calibration/scenario.gmean.${FILENAME}.ctl <<EOF
+        mv scenario.gmean.bin ../output/r_calibration_cloud/scenario.gmean.${FILENAME}.bin
+        cat >../output/r_calibration_cloud/scenario.gmean.${FILENAME}.ctl <<EOF
         dset ^scenario.gmean.${FILENAME}.bin
         undef 9.e27
         xdef 12 linear 0 3.75
@@ -102,8 +102,8 @@ EOF
     if [ $control -eq 1 ]
     then
     # rename control run output and move it to output folder
-        mv control.bin ../output/r_calibration/control.${FILENAME}.bin
-        cat >../output/r_calibration/control.${FILENAME}.ctl <<EOF
+        mv control.bin ../output/r_calibration_cloud/control.${FILENAME}.bin
+        cat >../output/r_calibration_cloud/control.${FILENAME}.ctl <<EOF
         dset ^control.${FILENAME}.bin
         undef 9.e27
         xdef  96 linear 0 3.75

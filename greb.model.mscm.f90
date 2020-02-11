@@ -1485,7 +1485,7 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 &      .and. iunit == 102 ) then
      ndm=jday_mon(mon)*ndt_days
      irec=irec+1;
-     ! write(iunit,rec=irec)   Tmm/ndm
+     ! write(iunit,rec=irec)   Tmm/ndm !FOR R SENSITIVITY EXPERIMENT
 
      write(iunit,rec=9*irec-8)  Tmm/ndm
      write(iunit,rec=9*irec-7)  Tamm/ndm

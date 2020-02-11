@@ -1,7 +1,8 @@
 from myfuncs import * # Import self defined classes and function
+ignore_warnings()
 
-r_cld=from_binary(constants.greb_folder()+'/r_calibration').r
-corr = 0.1
+r_cld=from_binary(constants.greb_folder()+'/r_calibration_cloud').r
+corr = 0.15
 
 t_init_fname = constants.output_folder()+'/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs'
 
@@ -25,6 +26,7 @@ ny=1
 dt = dt.isel(time=slice(-12*ny-1,-1)).group_by('12h')
 dCLD_new = -(corr/r_cld)*(dt)
 dCLD_new=dCLD_new.where(np.abs(r_cld)>=1,0) # Correction for small r_cld
+
 # If ocean_flag is active, change clouds only over ocean
 if ocean_flag is "_ocean":
     new_cloud = np.where(constants.land_ocean_mask(),dCLD_new+cld_base,cld_base)

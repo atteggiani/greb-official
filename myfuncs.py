@@ -2156,7 +2156,7 @@ def create_solar(time = None, latitude = None, value = 1,
             raise Exception('"solar_base" must be a xarray.DataArray, numpy.ndarray,'+
                             ' or a valid path to the solar file.')
     else:
-        data = constants.def_DataArray(name='solar')
+        data = constants.def_DataArray(name='solar',dims=('time','lat'))
 
     mask=True
     # Check coordinates and constrain them
