@@ -851,9 +851,11 @@ class constants:
             if 'lat' in dims: lat = constants.lat()
             if 'lon' in dims: lon = constants.lon()
         scope = locals()
-        if ((attrs is None) or ((attrs is not None) and ('long_name' not in attrs))) \
-            and name is not None:
-            attrs={'long_name':name}
+        if name is not None:
+            if attrs is None:
+                attrs={'long_name':name}
+            if 'long_name' not in attrs:
+                attrs.update({'long_name':name})
         if coords is None:coords = dict((key,eval(key,scope)) for key in dims)
         if data is None: data = np.zeros([len(val) for val in coords.values()])
         return DataArray(data,name=name,dims=dims,coords=coords,attrs=attrs)

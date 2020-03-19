@@ -6,7 +6,7 @@ from matplotlib.ticker import AutoMinorLocator,FormatStrFormatter
 nlev=200
 cmap_tsurf=constants.colormaps.Div_tsurf()
 cmap_precip=constants.colormaps.Div_precip()
-r_cld=from_binary('r_calibration').r
+r_cld=from_binary('r_calibration_cloud').r
 srm_filename=os.path.join(constants.output_folder(),
                  'scenario.exp-930.geoeng.cld.artificial.iter20_50yrs')
 CO2x2_filename=os.path.join(constants.scenario_2xCO2())
@@ -23,12 +23,11 @@ solar_homogeneous=from_binary(constants.get_art_forcing_filename(homogeneous_fil
 
 gm0=control.global_mean().to_celsius().mean()
 gm=srm.global_mean().to_celsius().group_by('year')
-
+matplotlib.rcParams.update({'font.size': 14})
 # ============================================================== #
 # FIG 1) Annual mean anomalies
 
 def plot_fig1(nlev=100):
-    matplotlib.rcParams.update({'font.size': 14})
     fig1 = plt.figure(figsize=(16,7),constrained_layout=False)
     heights = [10,1]
     wspace=0.15; hspace=0.1; ncols=3; nrows=2
@@ -104,25 +103,24 @@ def plot_fig1(nlev=100):
 # ============================================================== #
 # FIG 2) r_cld and cloud annual mean + seasonal means (JJA & DJF)
 def plot_fig2(nlev=100):
-    matplotlib.rcParams.update({'font.size': 14})
     fig = plt.figure(figsize=(16,6),constrained_layout=False)
     heights = [10,1]
-    wspace=0.15; hspace=0.2; ncols=3; nrows=2
+    wspace=0.15; hspace=0.15; ncols=3; nrows=2
     gs1=fig.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         bottom=0.55, top=1)
+                         bottom=0.56, top=1)
     gs2=fig.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         bottom=0, top=0.45)
+                         bottom=0, top=0.44)
     ax1 = fig.add_subplot(gs1[0, 0],projection=ccrs.Robinson())
     im=r_cld.annual_mean().plotvar(ax=ax1,
                                 statistics=False,
                                 add_colorbar=False,
                                 levels=np.linspace(-9,0,nlev),
                                 cmap=cm.viridis,
-                                title='r_cld Annual Mean')
+                                title='$S_{CLD}$ Annual Mean')
     min,max=-9,3
     ax2 = fig.add_subplot(gs1[0, 1],projection=ccrs.Robinson())
     im2=r_cld.group_by('season').sel(time='DJF').plotvar(ax=ax2,
@@ -131,7 +129,7 @@ def plot_fig2(nlev=100):
                                 levels=np.linspace(min,max,nlev),
                                 norm=colors.DivergingNorm(vmin=min, vcenter=0., vmax=max),
                                 cmap=constants.colormaps.add_white(cm.viridis),
-                                title='r_cld DJF')
+                                title='$S_{CLD}$ DJF')
     ax3 = fig.add_subplot(gs1[0, 2],projection=ccrs.Robinson())
     r_cld.group_by('season').sel(time='JJA').plotvar(ax=ax3,
                                 statistics=False,
@@ -139,14 +137,16 @@ def plot_fig2(nlev=100):
                                 levels=np.linspace(min,max,nlev),
                                 norm=colors.DivergingNorm(vmin=min, vcenter=0., vmax=max),
                                 cmap=constants.colormaps.add_white(cm.viridis),
-                                title='r_cld JJA')
+                                title='$S_{CLD}$ JJA')
     ax4 = fig.add_subplot(gs1[1, 0])
     plt.colorbar(im,cax=ax4, orientation='horizontal',
-                 ticks=np.arange(-9,0+1,1))
+                 ticks=np.arange(-9,0+1,1),
+                 label='K/CLD')
     ax5 = fig.add_subplot(gs1[1, 1:])
     plt.colorbar(im2,cax=ax5,
                  orientation='horizontal',
-                 ticks=np.arange(min,max+1,1))
+                 ticks=np.arange(min,max+1,1),
+                 label='K/CLD')
     ax6 = fig.add_subplot(gs2[0, 0],projection=ccrs.Robinson())
     im=(cloud_srm.anomalies()).annual_mean().plotvar(ax=ax6,
                                     levels=np.linspace(-0.04,0.16,nlev),
@@ -182,7 +182,6 @@ def plot_fig2(nlev=100):
 # ============================================================== #
 # FIG 3) SW Radiation (W/m^2) annual cycle
 def plot_fig3():
-    matplotlib.rcParams.update({'font.size': 14})
     fig = plt.figure(figsize=(16,4),constrained_layout=False)
     gs1=fig.add_gridspec(ncols=2, nrows=1,
                          wspace=0.2,
@@ -242,7 +241,6 @@ def plot_fig3():
 # ============================================================== #
 # FIG 4) anomalies averaged over SREX regions
 def plot_fig4():
-    matplotlib.rcParams.update({'font.size': 14})
     fig3 = plt.figure(figsize=(16,9))
     gs1=fig3.add_gridspec(ncols=3, nrows=1,wspace=0.1,
                           bottom=0.64,top=0.98)
@@ -320,7 +318,6 @@ def plot_fig4():
 # AUXILIARY FIGURES
 # AUXILIARY FIG 1) Seasonal cycles
 def plot_aux_fig1(nlev=100):
-    matplotlib.rcParams.update({'font.size': 14})
     fig1 = plt.figure(figsize=(16,7),constrained_layout=False)
     heights = [10,1]
     wspace=0.15; hspace=0.1; ncols=3; nrows=2
@@ -387,7 +384,6 @@ def plot_aux_fig1(nlev=100):
 
 # AUXILIARY FIG 2) seqsonal cycles averaged over SREX regions
 def plot_aux_fig2():
-    matplotlib.rcParams.update({'font.size': 14})
     fig3 = plt.figure(figsize=(16,9))
     gs1=fig3.add_gridspec(ncols=3, nrows=1,wspace=0.1,
                           bottom=0.64,top=0.98)

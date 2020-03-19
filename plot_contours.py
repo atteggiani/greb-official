@@ -3,7 +3,7 @@ from myfuncs import *
 from matplotlib.ticker import AutoMinorLocator
 ignore_warnings()
 # Read scenario and base file
-filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.sw.artificial.frominput_x0.9798_50yrs.ctl'
+filename = r'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-20.2xCO2_50yrs.ctl'
 filename_base = r'/Users/dmar0022/university/phd/greb-official/output/control.default'
 
 filename = input_(filename,1)
@@ -118,4 +118,4 @@ if filename_art_forcing:
                                       name=name_art_forcing+'.seascyc.anom')
 
     plt.close('all')
-    print('Done!!!\n')
+print('Done!!!\n')

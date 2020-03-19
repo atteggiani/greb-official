@@ -1,6 +1,7 @@
 from myfuncs import *
 from itertools import islice,product as iproduct
 from scipy.interpolate import griddata
+ignore_warnings()
 
 def window(seq, n=2):
     "Returns a sliding window (of width n) over data from the iterable"
@@ -93,7 +94,6 @@ def create_r(dx=4,dy=4):
             r=r.where(~mask,dt/dcld)
             r=r.where(~mask_JJA,dt_JJA/dcld_JJA)
             r=r.where(~mask_DJF,dt_DJF/dcld_DJF)
-
 
     print('Interpolating...')
     for n,t in list(enumerate(r.time)):

@@ -1,4 +1,5 @@
 from myfuncs import *
+ignore_warnings()
 
 def plot_tsurf(tsurf,labels):
     from matplotlib.ticker import AutoMinorLocator
@@ -7,7 +8,7 @@ def plot_tsurf(tsurf,labels):
     plt.figure()
     plt.plot(tsurf[0],color='black',linewidth=2,label=labels[0])
     for t,l,c in zip(tsurf[1:],labels[1:],colors):
-        plt.plot(t,label=l,color=c)
+        plt.plot(t,label=l,color=c,linewidth=0.65)
     plt.legend(loc='upper right',bbox_to_anchor=(-0.15,1.05),fontsize = 'xx-small')
     plt.title('Surface Temperature')
     plt.xlabel('years')
@@ -22,11 +23,12 @@ def plot_precip(precip,labels):
     plt.figure()
     plt.plot(precip[0],color='black',linewidth=2,label=labels[0])
     for t,l,c in zip(precip[1:],labels[1:],colors):
-        plt.plot(t,label=l,color=c)
+        plt.plot(t,label=l,color=c,linewidth=0.65)
     plt.legend(loc='upper right',bbox_to_anchor=(-0.15,1.05),fontsize = 'xx-small')
     plt.title('Precipitation')
     plt.xlabel('years')
     plt.ylabel('precip (mm/d)')
+    plt.ylim([2.40,2.7])
     plt.gca().yaxis.set_minor_locator(AutoMinorLocator())
     plt.grid(which='both',linestyle='--')
 
