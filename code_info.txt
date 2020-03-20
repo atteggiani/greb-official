@@ -1,0 +1,71 @@
+GREB CODE INFO
+CONTROL RUN ==> Gets the external boundaries and runs the model without other
+                forcings. Applies flux control to variables.
+SCENARIO RUN ==> With the flux control taken from the CONTROL RUN runs the model
+                 with the other forcings (e.g. 2xCO2) based on the experiment
+                 number (log_exp).
+
+===============================================================================
+- CLOUD COVERAGE --> cldclim
+Read from 'isccp.cloud_cover.clim.bin'
+
+a_atmos = cldclim * a_cloud , in SWradiation subroutine
+e_cloud = cldclim , in LWradiation subroutine
+
+Can be switched to 0 in decon mean state experiment
+cldclim = 0.7 in decon2xco2 experiment
+===============================================================================
+- CLOUDS --> e_cloud
+e_cloud = cldclim , in LWradiation subroutine
+
+Gets the emissivity factor (em) together with the emissivity parameters (p_emi)
+===============================================================================
+- CLOUD ALBEDO --> a_cloud
+Def value = 0.35
+
+Initialized in mo_physics module
+a_atmos = cldclim * a_cloud , in SWradiation subroutine
+
+===============================================================================
+- ATMOSPHERIC ALBEDO --> a_atmos
+a_atmos = cldclim * a_cloud , in SWradiation subroutine
+
+Initialized in SWradiation subroutine
+albedo=a_surf+a_atmos-a_surf*a_atmos , in SWradiation subroutine (Total albedo computed through intersection with surface albedo)
+
+===============================================================================
+- ICE ALBEDO --> da_ice
+Def value = 0.25
+
+Initialized in mo_physics module
+Gets the surface albedo (a_surf) together with the non-ice albedo (a_no_ice)
+===============================================================================
+- NON ICE ALBEDO --> a_no_ice
+Def value = 0.1
+
+Initialized in mo_physics module
+Gets the surface albedo (a_surf) together with the ice albedo (da_ice)
+===============================================================================
+- SURFACE ALBEDO --> a_surf
+It's a function of the ice (da_ice) and non-ice (a_no_ice) albedo
+
+Initialized in SWradiation subroutine
+
+===============================================================================
+- TOTAL ALBEDO --> albedo
+albedo=a_surf+a_atmos-a_surf*a_atmos  (Intersection between atmospheric and surface albedo)
+
+Initialized in SWradiation subroutine
+
+===============================================================================
+- EMISSIVITY PARAMETERS --> p_emi
+p_emi = 9.0721, 106.7252, 61.5562, 0.0179, 0.0028, 0.0570, 0.3462, 2.3406, 0.7032, 1.0662
+
+Initialized in mo_physics module
+Gets the emissivity factor together with the clouds (e_cloud)
+===============================================================================
+- EMISSIVITY FACTOR --> em
+Function of the emissivity parameters (p_emi) and the clouds (e_cloud)
+
+Initialized in SWradiation subroutine
+Multiplied to LW_surf to compute air temperatures (Ta0 and dTa) in qflux_correction subroutine and children subroutines

@@ -74,6 +74,8 @@
 !  log_exp = 46  partial 2xCO2 Boreal Winter
 !  log_exp = 47  partial 2xCO2 Boreal Summer
 !
+!  log_exp = 51  control-fixed Tsurf and 4xCO2
+!
 !  log_exp = 95  IPCC A1B scenario
 !  log_exp = 96  IPCC RCP26 scenario
 !  log_exp = 97  IPCC RCP45 scenario
@@ -90,6 +92,8 @@
 !
 !  log_exp = 100 run model with your own CO2 input file
 !
+!  log_exp = 930 runs the model with your own artificial clouds forcing and 2xCO2
+!  log_exp = 931 runs the model with your own artificial SW forcing and 2xCO2
 !+++++++++++++++++++++++++++++++++++++++
 module mo_numerics
 !+++++++++++++++++++++++++++++++++++++++
@@ -109,10 +113,12 @@ module mo_numerics
   integer, parameter, dimension(12) :: jday_mon = (/31,28,31,30,31,30,31,31,30,31,30,31/) ! days per
   real, parameter    :: dlon      = 360./xdim         ! linear increment in lon
   real, parameter    :: dlat      = 180./ydim         ! linear increment in lat
+  real, parameter    :: deg       = 2.*3.14159*6.371e6/360. ! length of 1deg latitude [m] at the equator
 
   integer            :: ireal     = 4         	      ! record length for IO (machine dependent)
 ! 						        ireal = 4 for Mac Book Pro and Ubuntu Linux
-
+  real, dimension(ydim) :: lat                        ! Array with all the latitudes
+  real, dimension(xdim,ydim) :: wlat                  ! Correction factor for length (based on cosine lat)
   namelist / numerics / time_flux, time_ctrl, time_scnr
 
 end module mo_numerics
@@ -152,7 +158,7 @@ module mo_physics
   integer  :: log_tsurf_ext   = 0              ! process control evaporation parameterisation
   integer  :: log_hwind_ext   = 0              ! process control advection parameterisation
   integer  :: log_omega_ext   = 0              ! process control for reference climatology
-
+  integer  :: log_control      = 1              ! process control for the "control" run
 ! parameters for scenarios
   real     :: dradius   = 0.		 ! deviations from actual earth radius in %
 
@@ -178,7 +184,7 @@ module mo_physics
   real :: ct_sens   = 22.5                         ! coupling for sensible heat
   real :: da_ice    = 0.25                         ! albedo diff for ice covered points
   real :: a_no_ice  = 0.1                          ! albedo for non-ice covered points
-  real :: a_cloud   = 0.35                         ! albedo for clouds
+  real :: a_cloud   = 0.35                       ! albedo for clouds
   real :: Tl_ice1   = 273.15-10.                   ! temperature range of land snow-albedo feedback
   real :: Tl_ice2   = 273.15                       ! temperature range of land snow-albedo feedback
   real :: To_ice1   = 273.15-7.                    ! temperature range of ocean ice-albedo feedback
@@ -196,16 +202,16 @@ module mo_physics
   ! physical paramter (rainfall)
   real :: c_q, c_rq, c_omega, c_omegastd
 
-! parameter emisivity
+! parameter emissivity
   real, dimension(10) :: p_emi = (/9.0721, 106.7252, 61.5562, 0.0179, 0.0028,     &
 &                                             0.0570, 0.3462, 2.3406, 0.7032, 1.0662/)
 
 ! declare climate fields
   real, dimension(xdim,ydim)          ::  z_topo, glacier,z_ocean
   real, dimension(xdim,ydim,nstep_yr) ::  Tclim, uclim, vclim, omegaclim, omegastdclim, wsclim
-  real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim
+  real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim, cldclim_artificial
   real, dimension(xdim,ydim,nstep_yr) ::  TF_correct, qF_correct, ToF_correct, swetclim, dTrad
-  real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr
+  real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr, sw_solar_artificial
   real, dimension(xdim,ydim)          ::  co2_part      = 1.0
   real, dimension(xdim,ydim)          ::  co2_part_scn  = 1.0
 
@@ -232,7 +238,7 @@ module mo_physics
 
   real :: t0, t1, t2
 
-  namelist / physics / log_exp, ct_sens, da_ice, a_no_ice, a_cloud, co_turb, kappa, 	&
+  namelist / physics / log_exp, log_control, ct_sens, da_ice, a_no_ice, a_cloud, co_turb, kappa, 	&
 &                      p_emi, Tl_ice1, Tl_ice2, To_ice1, To_ice2, r_qviwv,          	&
 &		                   log_cloud_dmc, log_ocean_dmc, log_atmos_dmc, log_co2_dmc,        &
 &                      log_hydro_dmc, log_qflux_dmc, 					                          &
@@ -254,8 +260,8 @@ module mo_diagnostics
 &                                        ftmn, fqmn, icmn, Tomn
 
 ! declare output fields
-  real, dimension(xdim,ydim)          :: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm
-  real, dimension(xdim,ydim,12)       :: Tmn_ctrl, Tamn_ctrl, Tomn_ctrl
+  real, dimension(xdim,ydim)          :: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm, swmm
+  real, dimension(xdim,ydim,12)       :: Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, swmn_ctrl
   real, dimension(xdim,ydim,12)       :: qmn_ctrl, icmn_ctrl, prmn_ctrl, evamn_ctrl, qcrclmn_ctrl
 
 end module mo_diagnostics
@@ -273,10 +279,22 @@ subroutine greb_model
   real, dimension(xdim,ydim) :: Ts0, Ts1, Ta0, Ta1, To0, To1, q0, q1,       &
 &                               ts_ini, ta_ini, q_ini, to_ini
 
+! Compute parameters
+    ! lat
+    do i=1,ydim
+      lat(i) = -90-(dlat*0.5)+i*dlat
+    end do
+    ! wlat
+    do i=1,xdim
+      wlat(i,:) = cos(2.*3.14159*lat/360.)
+    end do
+
 ! open output files
-  open(101,file='control.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  if ( log_control .eq. 1 ) then
+      open(101,file='control.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  end if
   open(102,file='scenario.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(103,file='scenario.gmean.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal)
+  ! open(103,file='scenario.gmean.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal)
 
   dTrad = -0.16*Tclim -5. ! offset Tatmos-rad
 
@@ -307,7 +325,7 @@ subroutine greb_model
 ! initialize fields
   Ts_ini   = Tclim(:,:,nstep_yr)                          ! initial value temp. surf
   Ta_ini   = Ts_ini                                       ! initial value atm. temp.
-  To_ini   = Toclim(:,:,nstep_yr)                         ! initial value temp. surf
+  To_ini   = Toclim(:,:,nstep_yr)                         ! initial value temp. ocean
   q_ini    = qclim(:,:,nstep_yr)                          ! initial value atmos water vapor
 
   CO2_ctrl = 340.0
@@ -390,16 +408,17 @@ subroutine greb_model
   end if
 
 ! control run
-  print*,'% CONTROL RUN CO2=',CO2_ctrl,'  time=', time_ctrl,'yr'
-  print 1001, "YEAR", "CO2[ppm]", "SW[W/m^2]", "global mean[C]", "Trop Pac[C]", "Hamburg[C]", "North Pole[C]" !TB
-  Ts1 = Ts_ini; Ta1 = Ta_ini; To1 = To_ini; q1 = q_ini;                   ! initialize fields
-  year=1970; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
-  do it=1, time_ctrl*nstep_yr                                             ! main time loop
-    call time_loop(it, isrec, year, CO2_ctrl, irec, mon, 101, Ts1, Ta1, q1, To1, Ts0,Ta0, q0, To0 )
-    Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
-    if (log_exp .eq. 1 .and. mod(it,nstep_yr) .eq. 0) year=year+1
-  end do
-
+  if ( log_control .eq. 1 ) then
+      print*,'% CONTROL RUN CO2=',CO2_ctrl,'  time=', time_ctrl,'yr'
+      print 1001, "YEAR", "CO2[ppm]", "SW[W/m^2]", "global mean[C]", "Trop Pac[C]", "Hamburg[C]", "North Pole[C]" !TB
+      Ts1 = Ts_ini; Ta1 = Ta_ini; To1 = To_ini; q1 = q_ini;                   ! initialize fields
+      year=1970; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
+      do it=1, time_ctrl*nstep_yr                                             ! main time loop
+        call time_loop(it, isrec, year, CO2_ctrl, irec, mon, 101, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
+        Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
+        if (log_exp .eq. 1 .and. mod(it,nstep_yr) .eq. 0) year=year+1
+      end do
+  end if
 
 
 ! scenario run
@@ -435,20 +454,21 @@ if ( log_exp .ne. 1 .or. time_scnr .ne. 0 ) then
   year=1950.; CO2=340.0; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
   if (log_exp .ge. 35 .and. log_exp .le. 37) year=1.
 
-  do it=1, time_scnr*nstep_yr                                              ! main time loop
+  do it=1, time_scnr*nstep_yr   ! main time loop
      call forcing(it, year, CO2, Ts1)
-     call time_loop(it,isrec, year, CO2, irec, mon, 102, Ts1, Ta1, q1, To1, Ts0,Ta0, q0, To0 )
+     call time_loop(it,isrec, year, CO2, irec, mon, 102, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
 
      Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
      if (mod(it,nstep_yr) == 0) year=year+1
+     ! if (log_exp == 51) Ts1=Tclim(:,:,)
   end do
 
-end if !( log_exp .ne. 1 )
+end if!( log_exp .ne. 1 )
 
 end subroutine
 
 !+++++++++++++++++++++++++++++++++++++++
-subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, Ts0,Ta0, q0, To0)
+subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0)
 !+++++++++++++++++++++++++++++++++++++++
 ! main time loop
 
@@ -489,9 +509,9 @@ subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, 
   ! sea ice heat capacity
   call seaice(Ts0)
   ! write output
-  call output(it, ionum, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl)
+  call output(it, ionum, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl, sw)
   ! diagnostics: annual means plots
-  call diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, lw_surf, q_lat, q_sens)
+  call diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
 
 end subroutine time_loop
 
@@ -585,7 +605,7 @@ subroutine  qflux_correction(CO2_ctrl, Ts1, Ta1, q1, To1)
     ! sea ice heat capacity
     call seaice(Ts0)
     ! diagnostics: annual means plots
-    call diagonstics(it, 0.0, CO2_ctrl, ts0, ta0, to0, q0, ice_cover, sw, lw_surf, q_lat, q_sens)
+    call diagonstics(it, 0.0, CO2_ctrl, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
     ! memory
     Ts1=Ts0; Ta1=Ta0; q1=q0;  To1=To0;
 
@@ -642,7 +662,7 @@ subroutine SWradiation(Tsurf, sw, ice_cover)
 ! SW flux
   albedo=a_surf+a_atmos-a_surf*a_atmos
   forall (i=1:xdim)
-     sw(i,:)=0.01*S0_var*SW_solar(:,ityr)*(1-albedo(i,:))
+     sw(i,:)=0.01*S0_var*sw_solar(:,ityr)*(1-albedo(i,:))
   end forall
 
 end subroutine SWradiation
@@ -659,13 +679,13 @@ subroutine LWradiation(Tsurf, Tair, q, CO2, LWsurf, LWair_up, LWair_down, em)
 &                           log_atmos_dmc, co2_part
 
 ! declare temporary fields
-  real, dimension(xdim,ydim)  :: Tsurf, Tair, q, LWsurf, LWair, e_co2, e_cloud,   &
+  real, dimension(xdim,ydim)  :: Tsurf, Tair, q, LWsurf, e_co2, e_cloud,   &
 &                                LWair_up, LWair_down, e_vapor, em
 
 
   e_co2   = exp(-z_topo/z_air)*co2_part*CO2   ! CO2
   e_vapor = exp(-z_topo/z_air)*r_qviwv*q      ! water vapor
-  e_cloud = cldclim(:,:,ityr)                 ! clouds
+  e_cloud = cldclim(:,:,ityr)                ! clouds
 
 ! total
   em      = p_emi(4)*log( p_emi(1)*e_co2 +p_emi(2)*e_vapor +p_emi(3) ) +p_emi(7)   &
@@ -875,7 +895,7 @@ subroutine diffusion(T1, dX_diffuse,h_scl, wz)
 !+++++++++++++++++++++++++++++++++++++++
 !    diffusion
 
-  USE mo_numerics,   ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl
+  USE mo_numerics,   ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl, deg, lat
   USE mo_physics,    ONLY: pi, z_topo, log_exp, kappa, z_vapor
   implicit none
 
@@ -885,17 +905,16 @@ subroutine diffusion(T1, dX_diffuse,h_scl, wz)
 
   integer :: i
   integer, dimension(ydim)   :: ilat = (/(i,i=1,ydim)/)
-  real, dimension(ydim)      :: lat, dxlat, ccx
+  real, dimension(ydim)      :: dxlat, ccx
   real, dimension(xdim)      :: T1h, dTxh
   real, dimension(xdim,ydim) :: dTx, dTy
 
-  real    :: deg, dd, dx, dy, dyy, ccy, ccx2
+  real    :: dd, dx, dy, dyy, ccy, ccx2
   integer :: j, k, km1, kp1, jm1, jm2, jm3, jp1, jp2, jp3
   integer :: time2, dtdff2, tt2
 
-  deg = 2.*pi*6.371e6/360.;   ! length of 1deg latitude [m]
   dx = dlon; dy=dlat; dyy=dy*deg
-  lat = dlat*ilat-dlat/2.-90.;  dxlat=dx*deg*cos(2.*pi/360.*lat)
+  dxlat=dx*deg*cos(2.*pi/360.*lat)
   ccy=kappa*dt_crcl/dyy**2
   ccx=kappa*dt_crcl/dxlat**2
 
@@ -1045,7 +1064,7 @@ subroutine advection(T1, dX_advec,h_scl, wz)
 !+++++++++++++++++++++++++++++++++++++++
 !    advection after DD
 
-  USE mo_numerics, ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl
+  USE mo_numerics, ONLY: xdim, ydim, dt, dlon, dlat, dt_crcl, deg, lat
   USE mo_physics,  ONLY: pi, z_topo, uclim, vclim, ityr, z_vapor, log_exp
   USE mo_physics,  ONLY: uclim_m, uclim_p, vclim_m, vclim_p
   implicit none
@@ -1056,17 +1075,16 @@ subroutine advection(T1, dX_advec,h_scl, wz)
 
   integer :: i
   integer, dimension(ydim):: ilat = (/(i,i=1,ydim)/)
-  real, dimension(ydim) :: lat, dxlat, ccx
+  real, dimension(ydim) :: dxlat, ccx
   real, dimension(xdim) :: T1h, dTxh
   real, dimension(xdim,ydim) :: ddx, T, dTx, dTy
   integer time2, dtdff2, tt2
 
-  real    :: deg, dx, dy, dd, dyy, ccy, ccx2
+  real    :: dx, dy, dd, dyy, ccy, ccx2
   integer :: j, k, km1, km2, kp1, kp2, jm1, jm2, jm3, jp1, jp2, jp3
 
-  deg = 2.*pi*6.371e6/360.;   ! length of 1deg latitude [m]
   dx = dlon; dy=dlat; dyy=dy*deg
-  lat = dlat*ilat-dlat/2.-90.;  dxlat=dx*deg*cos(2.*pi/360.*lat)
+  dxlat=dx*deg*cos(2.*pi/360.*lat)
   ccy=dt_crcl/dyy/2.
   ccx=dt_crcl/dxlat/2.
 
@@ -1264,8 +1282,11 @@ subroutine forcing(it, year, CO2, Tsurf)
 
   USE mo_numerics,    ONLY: xdim, ydim, ndays_yr, ndt_days, nstep_yr
   USE mo_physics,     ONLY: log_exp, sw_solar, sw_solar_ctrl, sw_solar_scnr,     &
-&                           co2_part, co2_part_scn, z_topo, ityr, Tclim
+&                           co2_part, co2_part_scn, z_topo, ityr, Tclim, cldclim,         &
+&                           cldclim_artificial, sw_solar_artificial
   USE mo_diagnostics,  ONLY: icmn_ctrl
+
+  ! IMPLICIT NONE
 
   ! input fields
   real, dimension(xdim,ydim)  :: Tsurf
@@ -1364,11 +1385,22 @@ subroutine forcing(it, year, CO2, Tsurf)
 ! Forced ENSO run
   if( log_exp .eq. 240 .or. log_exp .eq. 241 ) Tsurf = Tclim(:,:,ityr)  ! Keep temp on external boundary condition
 
+! Geo-engineering experiment with artificial clouds
+  if( log_exp .eq. 930 ) then
+      cldclim = cldclim_artificial
+      CO2 = 2*340.
+  end if
+
+! Geo-engineering experiment with artificial SW radiation
+  if( log_exp .eq. 931 ) then
+      sw_solar = sw_solar_artificial
+      CO2 = 2*340.
+  end if
 
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++
-subroutine diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, lw_surf, q_lat, q_sens)
+subroutine diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, LW_surf, q_lat, q_sens)
 !+++++++++++++++++++++++++++++++++++++++
 !    diagonstics plots
 
@@ -1398,53 +1430,56 @@ subroutine diagonstics(it, year, CO2, ts0, ta0, to0, q0, ice_cover, sw, lw_surf,
 end subroutine diagonstics
 
 !+++++++++++++++++++++++++++++++++++++++
-subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl)
+subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, dq_eva, dq_crcl, sw)
 !+++++++++++++++++++++++++++++++++++++++
 !    write output
 
   USE mo_numerics,     ONLY: xdim, ydim, jday_mon, ndt_days, nstep_yr, time_scnr &
 &                          , time_ctrl, ireal, dt
-  USE mo_physics,      ONLY: jday, log_exp, r_qviwv, wz_vapor
-  use mo_diagnostics,  ONLY: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm &
-&                          , Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, qmn_ctrl, icmn_ctrl, prmn_ctrl, evamn_ctrl, qcrclmn_ctrl
+  USE mo_physics,      ONLY: jday, log_exp, log_control, r_qviwv, wz_vapor
+  use mo_diagnostics,  ONLY: Tmm, Tamm, Tomm, qmm, icmm, prmm, evamm, qcrclmm, swmm &
+&                          , Tmn_ctrl, Tamn_ctrl, Tomn_ctrl, qmn_ctrl, icmn_ctrl &
+&                          , prmn_ctrl, evamn_ctrl, qcrclmn_ctrl, swmn_ctrl
 
   ! declare temporary fields
-  real, dimension(xdim,ydim)  :: Ts0, Ta0, To0, q0, ice_cover, dq_rain, dq_eva, dq_crcl
+  real, dimension(xdim,ydim)  :: Ts0, Ta0, To0, q0, ice_cover, dq_rain, dq_eva, dq_crcl, sw
 
   ! diagnostics: monthly means
-  Tmm=Tmm+Ts0; Tamm=Tamm+ta0; Tomm=Tomm+to0; qmm=qmm+q0; icmm=icmm+ice_cover;
+  Tmm=Tmm+Ts0; Tamm=Tamm+ta0; Tomm=Tomm+to0; qmm=qmm+q0; icmm=icmm+ice_cover; swmm=swmm+sw;
   prmm=prmm+dq_rain*(r_qviwv*wz_vapor);          ! kg/m2/s
   evamm=evamm+dq_eva*(r_qviwv*wz_vapor);         ! kg/m2/s
   qcrclmm=qcrclmm+dq_crcl*(r_qviwv*wz_vapor)/dt; ! kg/m2/s
 
 ! control output
-  if (       jday == sum(jday_mon(1:mon))                   &
+  if (       jday == sum(jday_mon(1:mon))                 &
 &      .and. it/float(ndt_days) == nint(it/float(ndt_days)) &
-&      .and. iunit == 101 ) then
+&      .and. iunit == 101 .and. log_control .eq. 1) then
      ndm=jday_mon(mon)*ndt_days
      if (it/float(ndt_days)  > 365*(time_ctrl-1)) then
-     if (log_exp .eq. 1 .or. log_exp .eq. 230 ) then
-     irec=irec+1;
-     write(iunit,rec=8*irec-7)  Tmm/ndm
-     write(iunit,rec=8*irec-6)  Tamm/ndm
-     write(iunit,rec=8*irec-5)  Tomm/ndm
-     write(iunit,rec=8*irec-4)   qmm/ndm
-     write(iunit,rec=8*irec-3)  icmm/ndm
-     write(iunit,rec=8*irec-2)  prmm/ndm
-     write(iunit,rec=8*irec-1) evamm/ndm
-     write(iunit,rec=8*irec) qcrclmm/ndm
-     else
-     Tmn_ctrl(:,:,mon)     =   Tmm/ndm
-     Tamn_ctrl(:,:,mon)    =  Tamm/ndm
-     Tomn_ctrl(:,:,mon)    =  Tomm/ndm
-     qmn_ctrl(:,:,mon)     =   qmm/ndm
-     icmn_ctrl(:,:,mon)    =  icmm/ndm
-     prmn_ctrl(:,:,mon)    =  prmm/ndm
-     evamn_ctrl(:,:,mon)   = evamm/ndm
-     qcrclmn_ctrl(:,:,mon) = qcrclmm/ndm
+         if (log_exp .eq. 1 .or. log_exp .eq. 230 &
+&            .or. log_exp .eq. 20 .or. log_exp .eq. 930) then
+             irec=irec+1;
+             write(iunit,rec=9*irec-8)  Tmm/ndm
+             write(iunit,rec=9*irec-7)  Tamm/ndm
+             write(iunit,rec=9*irec-6)  Tomm/ndm
+             write(iunit,rec=9*irec-5)   qmm/ndm
+             write(iunit,rec=9*irec-4)  icmm/ndm
+             write(iunit,rec=9*irec-3)  prmm/ndm
+             write(iunit,rec=9*irec-2) evamm/ndm
+             write(iunit,rec=9*irec-1) qcrclmm/ndm
+             write(iunit,rec=9*irec) swmm/ndm
+         end if
+         Tmn_ctrl(:,:,mon)     =   Tmm/ndm
+         Tamn_ctrl(:,:,mon)    =  Tamm/ndm
+         Tomn_ctrl(:,:,mon)    =  Tomm/ndm
+         qmn_ctrl(:,:,mon)     =   qmm/ndm
+         icmn_ctrl(:,:,mon)    =  icmm/ndm
+         prmn_ctrl(:,:,mon)    =  prmm/ndm
+         evamn_ctrl(:,:,mon)   = evamm/ndm
+         qcrclmn_ctrl(:,:,mon) = qcrclmm/ndm
+         swmn_ctrl(:,:,mon) = swmm/ndm
      end if
-     end if
-     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
+     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.; swmm=0.;
      mon=mon+1; if (mon==13) mon=1
   end if
 
@@ -1454,37 +1489,37 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
 &      .and. iunit == 102 ) then
      ndm=jday_mon(mon)*ndt_days
      irec=irec+1;
-     if (log_exp .ge. 35 .and. log_exp .le. 37 ) then
-     write(iunit,rec=8*irec-7)   Tmm/ndm
-     write(iunit,rec=8*irec-6)  Tamm/ndm
-     write(iunit,rec=8*irec-5)  Tomm/ndm
-     write(iunit,rec=8*irec-4)   qmm/ndm
-     write(iunit,rec=8*irec-3)  icmm/ndm
-     write(iunit,rec=8*irec-2)  prmm/ndm
-     write(iunit,rec=8*irec-1) evamm/ndm
-     write(iunit,rec=8*irec) qcrclmm/ndm
+     ! write(iunit,rec=irec)   Tmm/ndm !FOR R SENSITIVITY EXPERIMENT
 
-     else
-     write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-5)  Tomm/ndm -Tomn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-4)   qmm/ndm -qmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-3)  icmm/ndm -icmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-2)  prmm/ndm -prmn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec-1) evamm/ndm -evamn_ctrl(:,:,mon)
-     write(iunit,rec=8*irec) qcrclmm/ndm -qcrclmn_ctrl(:,:,mon)
+     write(iunit,rec=9*irec-8)  Tmm/ndm
+     write(iunit,rec=9*irec-7)  Tamm/ndm
+     write(iunit,rec=9*irec-6)  Tomm/ndm
+     write(iunit,rec=9*irec-5)   qmm/ndm
+     write(iunit,rec=9*irec-4)  icmm/ndm
+     write(iunit,rec=9*irec-3)  prmm/ndm
+     write(iunit,rec=9*irec-2) evamm/ndm
+     write(iunit,rec=9*irec-1) qcrclmm/ndm
+     write(iunit,rec=9*irec) swmm/ndm
 
-     iyrec=floor(float((irec-1)/12))
-     write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
-     write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
-     write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
-     write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
-     write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
-     write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
-     write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
-     write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
-     end if
-     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.;
+     ! write(iunit,rec=8*irec-7)   Tmm/ndm  -Tmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-6)  Tamm/ndm -Tamn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-5)  Tomm/ndm -Tomn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-4)   qmm/ndm -qmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-3)  icmm/ndm -icmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-2)  prmm/ndm -prmn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec-1) evamm/ndm -evamn_ctrl(:,:,mon)
+     ! write(iunit,rec=8*irec) qcrclmm/ndm -qcrclmn_ctrl(:,:,mon)
+
+     ! iyrec=floor(float((irec-1)/12))
+     ! write(103,rec=               12*iyrec+mon) gmean(Tmm/ndm  -Tmn_ctrl(:,:,mon))
+     ! write(103,rec=1*12*time_scnr+12*iyrec+mon) gmean(Tamm/ndm -Tamn_ctrl(:,:,mon))
+     ! write(103,rec=2*12*time_scnr+12*iyrec+mon) gmean(Tomm/ndm -Tomn_ctrl(:,:,mon))
+     ! write(103,rec=3*12*time_scnr+12*iyrec+mon) gmean(qmm/ndm -qmn_ctrl(:,:,mon))
+     ! write(103,rec=4*12*time_scnr+12*iyrec+mon) gmean(icmm/ndm -icmn_ctrl(:,:,mon))
+     ! write(103,rec=5*12*time_scnr+12*iyrec+mon) gmean(prmm/ndm -prmn_ctrl(:,:,mon))
+     ! write(103,rec=6*12*time_scnr+12*iyrec+mon) gmean(evamm/ndm -evamn_ctrl(:,:,mon))
+     ! write(103,rec=7*12*time_scnr+12*iyrec+mon) gmean(qcrclmm/ndm -qcrclmn_ctrl(:,:,mon))
+     Tmm=0.; Tamm=0.;Tomm=0.; qmm=0.; icmm=0.; prmm=0.; evamm=0.; qcrclmm=0.; swmm=0.;
      mon=mon+1; if (mon==13) mon=1
   end if
 
@@ -1495,19 +1530,15 @@ end subroutine output
 function gmean(data)
 !+++++++++++++++++++++++++++++++++++++++
 
-use mo_numerics,		ONLY: xdim, ydim, dlat
+use mo_numerics,		ONLY: xdim, ydim, dlat, lat, wlat
 
 ! declare variables
 real, dimension(xdim,ydim) 	:: data, w
-real, dimension(ydim)		:: lat
 
-do i=1,ydim
-lat(i) = -90-(dlat*0.5)+i*dlat
-end do
 do i=1,xdim
-w(i,:) = cos(2.*3.14159*lat/360.)
+    w(i,:) = cos(2.*3.14159*lat/360.)
 end do
 
-gmean = sum(data*w)/sum(w)
+gmean = sum(data*wlat)/sum(wlat)
 
 end function

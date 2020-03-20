@@ -3,5 +3,10 @@
 *.nc
 *.mod
 work/
-output/*
+output/
 figures/
+input/figures/
+__pycache__
+code_info.txt
+artificial_clouds/
+old_scripts/

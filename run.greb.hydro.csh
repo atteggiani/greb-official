@@ -59,6 +59,7 @@ endif
 #            (surface temperature, hodrizontal winds and omega) of the ERA-Interim
 #            composite mean response
 #
+#  EXP = 930 Geo-Engineering experiment with artificial clouds forcing
 #
 # some general remarks to the sensitivity experiments:
 # - all scenarios will start in 1950
@@ -84,7 +85,10 @@ endif
 
 # settings for scenario
 # scenario number from list above
-set EXP=230
+set EXP=20
+
+# Setting flag for saving control output (1 = save control, 0 = don't save control)
+set output_control=0
 
 # if scenario is forced climate change (EXP 230) or forced ENSO (EXP 240 or 241)
 # a deconstruction can be done similar to deconstrct 2xCO2 (see Stassen et. al 2018 submitted to GMD)
@@ -93,7 +97,7 @@ set log_hwind_ext=1 #force horizontal winds with external file (0=no forcing; 1=
 set log_omega_ext=1 #force vertical velocity omega with external file (0=no forcing; 1=forcing)
 
 # length of sensitivity experiment in years
-set YEARS=5
+set YEARS=80
 
 # for EXP = 35 choose here a value between -250 and 900 (with an increment of 25) for the obliquity:
 # => possible range: [-250 (= -25deg),  900 (= +90deg)], todays value 225 (=22.5deg)
@@ -110,6 +114,10 @@ set DRAD=0
 # for EXP='100', give here the name of input CO2 forcing data set without '.txt'
 set CO2input=none
 
+# for EXP = 930, give the name of input binary file containing artificial clouds
+# (with or without .bin), if not using the default one '../input/cld.artificial.bin'
+set cld_artificial='../artificial_clouds/cld.artificial.frominputX1.1'
+
 ### compile GREB model (uncomment one of these three options)
 ### gfortran compiler (Linux (e.g. Ubuntu), Unix or MacBook Air)
 # gfortran -fopenmp -march=native -O3 -ffast-math -funroll-loops greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
@@ -119,7 +127,6 @@ gfortran -Ofast -ffast-math -funroll-loops -fopenmp greb.model.mscm.f90 greb.she
 # ifort -assume byterecl -O3 -xhost -align all -fno-alias greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
 ### g95 compiler (other Linux)
 # g95 greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
-
 
 ###################
 # END USER INPUT! #
@@ -156,6 +163,16 @@ if ( $EXP == 99 ) set CO2='../input/ipcc.scenario.rcp85.forcing.txt'
 if ( $EXP == 100 ) set CO2='../input/'${CO2input}'.txt'
 # link CO2 forcing file
 ln -s $CO2 co2forcing
+
+# link artificial clouds forcing file for geo-engineering experiment
+if ($cld_artificial == none) then
+    set cld_artificial='../input/cld.artificial.bin'
+else
+    if ($cld_artificial:e != 'bin') set cld_artificial=${cld_artificial}.bin
+endif
+ln -s $cld_artificial cldart
+# get name for output file
+set artcldname = `basename $cld_artificial:r`
 
 #  generate namelist
 cat >namelist <<EOF
@@ -214,6 +231,10 @@ if ( $EXP == 100 ) set FILENAME=exp-${EXP}.${CO2input}
 if ( $EXP == 230 ) set FILENAME=exp-${EXP}.forced.climatechange.ensemblemean.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 240 ) set FILENAME=exp-${EXP}.forced.elnino.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
 if ( $EXP == 241 ) set FILENAME=exp-${EXP}.forced.lanina.erainterim.${log_tsurf_ext}${log_hwind_ext}${log_omega_ext}
+if ( $EXP == 930 ) set FILENAME=exp-${EXP}.geoeng.${artcldname}
+
+# if ( "$YEARS" != 50 ) set FILENAME=${FILENAME}_${YEARS}yrs
+set FILENAME=${FILENAME}_${YEARS}yrs
 
 # rename scenario run output and move it to output folder
 mv scenario.bin ../output/scenario.${FILENAME}.bin
@@ -261,5 +282,33 @@ qcrcl 1 0 qcrcl
 endvars
 EOF
 
-python ../plot_contour.py ../output/scenario.${FILENAME}
+# control run
+if ($output_control) then
+# rename control run output and move it to output folder
+    mv control.bin ../output/control.${FILENAME}.bin
+    cat >../output/control.${FILENAME}.ctl <<EOF
+dset ^control.${FILENAME}.bin
+undef 9.e27
+xdef  96 linear 0 3.75
+ydef  48 linear -88.125 3.75
+zdef   1 linear 1 1
+tdef 12 linear 15jan0  1mo
+vars 8
+tsurf  1 0 tsurf
+tatmos 1 0 tatmos
+tocean 1 0 tocean
+vapor  1 0 vapour
+ice    1 0 ice
+precip 1 0 precip
+eva 1 0 eva
+qcrcl 1 0 qcrcl
+endvars
+EOF
+endif
+
+# if ( $EXP == 930 ) then
+#     python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default $cld_artificial
+# else
+#     python ../plot_contours.py ../output/scenario.${FILENAME} ../output/control.default
+# endif
 exit
