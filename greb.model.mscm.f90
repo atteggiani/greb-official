@@ -74,6 +74,8 @@
 !  log_exp = 46  partial 2xCO2 Boreal Winter
 !  log_exp = 47  partial 2xCO2 Boreal Summer
 !
+!  log_exp = 51  control-fixed Tsurf and 4xCO2
+!
 !  log_exp = 95  IPCC A1B scenario
 !  log_exp = 96  IPCC RCP26 scenario
 !  log_exp = 97  IPCC RCP45 scenario
@@ -90,7 +92,8 @@
 !
 !  log_exp = 100 run model with your own CO2 input file
 !
-!  log_exp = 930 runs the model with your own artificial clouds forcing
+!  log_exp = 930 runs the model with your own artificial clouds forcing and 2xCO2
+!  log_exp = 931 runs the model with your own artificial SW forcing and 2xCO2
 !+++++++++++++++++++++++++++++++++++++++
 module mo_numerics
 !+++++++++++++++++++++++++++++++++++++++
@@ -451,15 +454,16 @@ if ( log_exp .ne. 1 .or. time_scnr .ne. 0 ) then
   year=1950.; CO2=340.0; mon=1; irec=0; Tmm=0.; Tamm=0.; qmm=0.; apmm=0.;
   if (log_exp .ge. 35 .and. log_exp .le. 37) year=1.
 
-  do it=1, time_scnr*nstep_yr                                              ! main time loop
+  do it=1, time_scnr*nstep_yr   ! main time loop
      call forcing(it, year, CO2, Ts1)
      call time_loop(it,isrec, year, CO2, irec, mon, 102, Ts1, Ta1, q1, To1, Ts0, Ta0, q0, To0 )
 
      Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
      if (mod(it,nstep_yr) == 0) year=year+1
+     ! if (log_exp == 51) Ts1=Tclim(:,:,)
   end do
 
-end if !( log_exp .ne. 1 )
+end if!( log_exp .ne. 1 )
 
 end subroutine
 
