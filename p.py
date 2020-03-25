@@ -8,3 +8,5 @@ ignore_warnings()
 
 
 # 2) Replicate ricke et al experiment using their CO2 concentration
+
+create_bin_ctl(constants.input_folder()+'/solar_radiation_new.clim.bin',{'solar':newsw})

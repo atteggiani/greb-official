@@ -74,6 +74,7 @@
 !  log_exp = 46  partial 2xCO2 Boreal Winter
 !  log_exp = 47  partial 2xCO2 Boreal Summer
 !
+!  log_exp = 50  control-fixed Tsurf and 2xCO2
 !  log_exp = 51  control-fixed Tsurf and 4xCO2
 !
 !  log_exp = 95  IPCC A1B scenario
@@ -492,6 +493,7 @@ subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, 
   ! surface temperature
   Ts0  = Ts1  +dT_ocean +dt*( SW +LW_surf -LWair_down +Q_lat +Q_sens +TF_correct(:,:,ityr)) / cap_surf
   where(Ts0 .le. Tmin_limit )     Ts0 = Tmin_limit ! no very low Tsurf;  numerical stability
+  if (log_exp == 50 .or. log_exp == 51) Ts0=Tclim(:,:,ityr)
   ! air temperature
   Ta0  = Ta1 +dTa_crcl +dt*( LWair_up +LWair_down -em*LW_surf +Q_lat_air -Q_sens )/cap_air
   where(Ta0 .le. Tmin_limit )     Ta0 = Tmin_limit ! no very low Tatmos;  numerical stability
@@ -1360,7 +1362,9 @@ subroutine forcing(it, year, CO2, Tsurf)
   if( log_exp .eq. 47 )  CO2      = 2*340.
   if( log_exp .eq. 47 .and. mod(it,nstep_yr) .le. 181)  CO2 = 340.
   if( log_exp .eq. 47 .and. mod(it,nstep_yr) .ge. 547)  CO2 = 340.
-
+! control-fixed tsurf experiments
+if( log_exp .eq. 50) CO2 = 2*340.
+if( log_exp .eq. 51) CO2 = 4*340.
 ! IPCC A1B scenario
   if( log_exp .eq. 95 ) then
      CO2_1950=310.;  CO2_2000=370.;  CO2_2050=520.

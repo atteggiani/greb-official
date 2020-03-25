@@ -224,6 +224,10 @@ case $EXP in
     ;;
     "47" ) FILENAME=exp-${EXP}.partial.2xCO2.summer
     ;;
+    "50" ) FILENAME=exp-${EXP}.control-fixed.tsurf.2xCO2
+    ;;
+    "51" ) FILENAME=exp-${EXP}.control-fixed.tsurf.4xCO2
+    ;;
     "95" ) FILENAME=exp-${EXP}.IPCC.A1B
     ;;
     "96" ) FILENAME=exp-${EXP}.IPCC.RCP26
