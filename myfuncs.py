@@ -325,6 +325,10 @@ class Dataset(xr.Dataset):
         new.coords['srex_name'] = ('srex_region', srex_regions.names)
         return new
 
+    def seasonal_time_series(self,first_month_num=None,update_attrs=True):
+        return seasonal_time_series(self,first_month_num=first_month_num,
+                                    update_attrs=update_attrs)
+
 class DataArray(xr.DataArray):
     '''
     Wrapper for xarray.DataArray class in order to add user-defined functions
@@ -728,6 +732,10 @@ class DataArray(xr.DataArray):
         new.coords['srex_abbrev'] = ('srex_region', srex_regions.abbrevs)
         new.coords['srex_name'] = ('srex_region', srex_regions.names)
         return new
+
+    def seasonal_time_series(self,first_month_num=None,update_attrs=True):
+        return seasonal_time_series(self,first_month_num=first_month_num,
+                                    update_attrs=update_attrs)
 
 class constants:
     '''
@@ -2477,6 +2485,89 @@ def _check(x1,x2):
     # CHECK COORDS
     if not x1.coords.to_dataset().equals(x2.coords.to_dataset()):
         raise Exception("Coordinates don't match!")
+
+def seasonal_time_series(x,first_month_num=None,update_attrs=True):
+    '''
+    Compute the seasonal average and return the seasonal time series.
+
+    Arguments
+    ----------
+    x : xarray.Dataset or xarray.DataArray object
+       array to compute the seasonal average on
+
+    Parameters
+    ----------
+    first_month_num : Int
+        Number of month in the year for first x value
+        (1 = Jan, 2 = Feb ... 11 = Nov, 12 = Dec)
+    update_attrs : Bool
+        If set to True (default), the new DataArray/Dataset will have an attribute
+        as a reference that the "seasonal_time_series" function has been applied to it.
+
+    Returns
+    ----------
+    xarray.Dataset or xarray.DataArray
+
+    New Dataset or DataArray object with average applied to its "time" dimension, every 3 values.
+    '''
+    def check_first_months(x,first_month_num):
+        length=len(x.coords['time'])
+        # if first month is Dec,Mar,Jun or Sep, start is None
+        if first_month_num in (12,3,6,9):
+            start = None
+        # if first month is Oct,Jan,Apr or Jul, start = average of first 2 values
+        elif first_month_num in (10,1,4,7):
+            start = x.isel(time=[0,1]).mean('time',keep_attrs=True).expand_dims('time',axis=0)
+            x = x.isel(time=slice(2,None))
+            # if first month is Nov,Feb,May or Aug, start = first value
+        elif first_month_num in (11,2,5,8):
+            start = x.isel(time=0).expand_dims('time',axis=0).drop('time')
+            x = x.isel(time=slice(1,None))
+        return [start,x]
+
+    def check_last_months(x):
+        length=len(x.coords['time'])
+        last_months=length % 3
+        # if last month is Nov,Feb,May or Aug, end is None
+        if last_months == 0:
+            end = None
+        # if last month is Dec,Mar,Jun or Sep, end = first value
+        elif last_months == 1:
+            end = x.isel(time=-1).expand_dims('time',axis=0).drop('time')
+            x = x.isel(time=slice(None,-1))
+        # if last month is Oct,Jan,Apr or Jul, end = average of last 2 values
+        elif last_months == 2:
+            end = x.isel(time=[-2,-1]).mean('time',keep_attrs=True).expand_dims('time',axis=0)
+            x = x.isel(time=slice(None,-2))
+        return [end,x]
+
+    def mean_each_N(x,N=3):
+        length=len(x.coords['time'])
+        ind=[0]+list(np.repeat(np.arange(N,length,N),2))+[length-1]
+        newdata=xr.apply_ufunc(lambda x: np.add.reduceat(x,ind,axis=-1),
+             x,
+             input_core_dims=[['time']],
+             output_core_dims=[['time']],
+             exclude_dims={'time'},
+             keep_attrs=True,
+             ).isel(time=slice(None,None,2))
+        return newdata
+
+    if not check_xarray(x): exception_xarray()
+    dims=[d for d in x.dims]
+    # compute x's first month (if 'first_month_num' not explicitly given as optional input)
+    if first_month_num is None:
+        first_month_num=dtime.utcfromtimestamp((x.time[0].values-np.datetime64('1970-01-01T00:00:00Z'))/np.timedelta64(1, 's')).month
+    start,x=check_first_months(x,first_month_num)
+    end,x=check_last_months(x)
+    middle=mean_each_N(x)
+    newdata=xr.concat([a for a in [start,middle,end] if a is not None],dim='time',coords='all')
+    if update_attrs:
+        newdata.attrs['seasonal_time_series'] = 'Computed seasonal time series'
+        if check_xarray(newdata,'Dataset'):
+            for var in x: x._variables[var].attrs['seasonal_time_series'] = 'Computed seasonal time series'
+    dims.remove('time')
+    return newdata.transpose('time',*dims)
 # ============================================================================ #
 # ============================================================================ #
 # ============================================================================ #

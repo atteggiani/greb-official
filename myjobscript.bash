@@ -45,6 +45,9 @@ List of experiments with suggested experiment length (in years):
 --  EXP = 46 -> partial 2xCO2 Boreal Winter                         [50 years]
 --  EXP = 47 -> partial 2xCO2 Boreal Summer                         [50 years]
 
+--  EXP = 50 -> control-fixed tsurf and 2xCO2                       [50 years]
+--  EXP = 51 -> control-fixed tsurf and 4xCO2                       [50 years]
+
 --  EXP = 95 -> IPCC A1B scenario                                   [150 years]
 --  EXP = 96 -> IPCC RCP26 scenario                                 [550 years]
 --  EXP = 97 -> IPCC RCP45 scenario                                 [550 years]

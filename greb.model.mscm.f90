@@ -461,7 +461,6 @@ if ( log_exp .ne. 1 .or. time_scnr .ne. 0 ) then
 
      Ts1=Ts0; Ta1=Ta0; q1=q0; To1=To0
      if (mod(it,nstep_yr) == 0) year=year+1
-     ! if (log_exp == 51) Ts1=Tclim(:,:,)
   end do
 
 end if!( log_exp .ne. 1 )
@@ -1363,8 +1362,8 @@ subroutine forcing(it, year, CO2, Tsurf)
   if( log_exp .eq. 47 .and. mod(it,nstep_yr) .le. 181)  CO2 = 340.
   if( log_exp .eq. 47 .and. mod(it,nstep_yr) .ge. 547)  CO2 = 340.
 ! control-fixed tsurf experiments
-if( log_exp .eq. 50) CO2 = 2*340.
-if( log_exp .eq. 51) CO2 = 4*340.
+  if( log_exp .eq. 50) CO2 = 2*340.
+  if( log_exp .eq. 51) CO2 = 4*340.
 ! IPCC A1B scenario
   if( log_exp .eq. 95 ) then
      CO2_1950=310.;  CO2_2000=370.;  CO2_2050=520.
