@@ -7,12 +7,12 @@ usage() {
   cat << EOF
 Usage: $PROGNAME [-e <exp_num>] [-y <year_num>] [-o] ...
 
-Possible keys:
+Possible options:
 -a -> perform the analysis on the output with the "plot_contours.py" script
 -C -> perform control run, to get the initial condition for the current experiment
 -c <artificial_cloud_file> -> "artificial cloud to be used with exp 930"
 -e <exp_num> -> "experiment number"
--s <artificial_sw_file> -> "artificial SW radiation to be used with exp 931"
+-s <artificial_sw_file> -> "artificial SW radiation to be used with exp 931,932 and 933"
 -y <year_num> -> "experiment length (in years)"
 
 List of experiments with suggested experiment length (in years):
@@ -67,28 +67,54 @@ List of experiments with suggested experiment length (in years):
                        conditions (surface temperature, hodrizontal winds and
                        omega) of the ERA-Interim composite mean response
 
--- EXP = 930 -> Geo-engineering experiment with 2xCO2 and artificial cloud cover
--- EXP = 931 -> Geo-engineering experiment with 2xCO2 and artificial incoming SW
-                Radiation
--- EXP = 932 -> Geo-engineering experiment with 4xCO2 and artificial incoming SW
-                Radiation
+-- EXP = 930 -> Geo-engineering experiment with artificial cloud cover and 2xCO2
+-- EXP = 931 -> Geo-engineering experiment with artificial incoming SW Radiation
+                and 2xCO2
+-- EXP = 932 -> Geo-engineering experiment with artificial incoming SW Radiation
+                and 4xCO2
+-- EXP = 933 -> Geo-engineering experiment with artificial incoming SW Radiation,
+                4xCO2 and control-fixed tsurf
 EOF
   exit 1
 }
 
 while getopts haCc:e:s:y: opt; do
   case $opt in
-    (e) EXP=$OPTARG;;
-    (a) analyze=1;;
-    (C) control=1;;
+    (e) EXP=$OPTARG
+    ;;
+    (a) analyze=1
+    ;;
+    (C) control=1
+    ;;
     (c) cld_artificial=$OPTARG
-        EXP=930;;
+        EXP=930
+    ;;
     (s) sw_artificial=$OPTARG
-        EXP=931;;
-    (y) YEARS=$OPTARG;;
+    ;;
+    (y) YEARS=$OPTARG
+    ;;
     (*) usage
   esac
 done
+
+if [[ -z "$EXP" ]];
+then
+    echo 'Please specify Experiment number!'
+    echo 'For info on how to run experiment type "rungreb -h"'
+    exit 1
+fi
+
+if [[ "$cld_artificial" && "$EXP" != 930 ]];
+then
+    echo 'Option "-c" usable only with experiment number 930.'
+    echo 'For info on how to run experiment type "rungreb -h"'
+    exit 1
+elif [[ "$sw_artificial" && !("$EXP" == 931 || "$EXP" == 932 || "$EXP" == 933) ]];
+then
+    echo 'Option "-s" usable only with experiment number 931, 932 or 933.'
+    echo 'For info on how to run experiment type "rungreb -h"'
+    exit 1
+fi
 
 # create work directory if does not already exist
 if [ ! -d work ]
@@ -114,8 +140,6 @@ cd work
 
 # experiment number for scenario run
 ((${EXP:=930}))
-# 930 - Geo-Engineering experiment with the artificial clouds forcing
-# 931 - Geo-Engineering experiment with the artificial SW radiation forcing
 
 # switch managing the "control" process
 ((${control:=0}))
@@ -143,7 +167,7 @@ if [ $EXP == 930 ]; then
 fi
 
 # link artificial SW forcing file for experiment 931
-if [ $EXP == 931 ]; then
+if [[ $EXP == 931 || $EXP == 932 || $EXP == 933 ]]; then
     # Set the name of the binary file containing the artificial SW input for scenario
     # run (with or without .bin).
     # If no file is provided, the default one '../artificial_solar_radiation/sw.artificial.bin' will be used.
@@ -160,6 +184,7 @@ if [ $EXP == 931 ]; then
     # get name for output file
     name=$(basename ${sw_artificial%.*})
 fi
+
 
 #  generate namelist
 cat >namelist <<EOF
@@ -243,7 +268,11 @@ case $EXP in
     ;;
     "100" ) FILENAME=exp-${EXP}.${CO2input}
     ;;
-    "930" | "931" ) FILENAME=exp-${EXP}.geoeng.${name}
+    "930" | "931" ) FILENAME=exp-${EXP}.geoeng.2xCO2.${name}
+    ;;
+    "932" ) FILENAME=exp-${EXP}.geoeng.4xCO2.${name}
+    ;;
+    "933" ) FILENAME=exp-${EXP}.geoeng.control-fixed.tsurf.4xCO2.${name}
     ;;
     * ) FILENAME=exp-${EXP}
 esac

@@ -74,8 +74,8 @@
 !  log_exp = 46  partial 2xCO2 Boreal Winter
 !  log_exp = 47  partial 2xCO2 Boreal Summer
 !
-!  log_exp = 50  control-fixed Tsurf and 2xCO2
-!  log_exp = 51  control-fixed Tsurf and 4xCO2
+!  log_exp = 50  control-fixed Tsurf + 2xCO2
+!  log_exp = 51  control-fixed Tsurf + 4xCO2
 !
 !  log_exp = 95  IPCC A1B scenario
 !  log_exp = 96  IPCC RCP26 scenario
@@ -93,8 +93,10 @@
 !
 !  log_exp = 100 run model with your own CO2 input file
 !
-!  log_exp = 930 runs the model with your own artificial clouds forcing and 2xCO2
-!  log_exp = 931 runs the model with your own artificial SW forcing and 2xCO2
+!  log_exp = 930  Artificial clouds forcing + 2xCO2
+!  log_exp = 931  Artificial SW forcing + 2xCO2
+!  log_exp = 932  Artificial SW forcing + 4xCO2
+!  log_exp = 933  Artificial SW forcing + 4xCO2 + control-fixed tsurf
 !+++++++++++++++++++++++++++++++++++++++
 module mo_numerics
 !+++++++++++++++++++++++++++++++++++++++
@@ -492,7 +494,7 @@ subroutine time_loop(it, isrec, year, CO2, irec, mon, ionum, Ts1, Ta1, q1, To1, 
   ! surface temperature
   Ts0  = Ts1  +dT_ocean +dt*( SW +LW_surf -LWair_down +Q_lat +Q_sens +TF_correct(:,:,ityr)) / cap_surf
   where(Ts0 .le. Tmin_limit )     Ts0 = Tmin_limit ! no very low Tsurf;  numerical stability
-  if (log_exp == 50 .or. log_exp == 51) Ts0=Tclim(:,:,ityr)
+  if (log_exp == 50 .or. log_exp == 51 .or. log_exp == 933) Ts0=Tclim(:,:,ityr)
   ! air temperature
   Ta0  = Ta1 +dTa_crcl +dt*( LWair_up +LWair_down -em*LW_surf +Q_lat_air -Q_sens )/cap_air
   where(Ta0 .le. Tmin_limit )     Ta0 = Tmin_limit ! no very low Tatmos;  numerical stability
@@ -1400,6 +1402,12 @@ subroutine forcing(it, year, CO2, Tsurf)
       CO2 = 2*340.
   end if
 
+! Geo-engineering experiment with artificial SW radiation
+  if( log_exp .eq. 932 .or. log_exp .eq. 933) then
+      sw_solar = sw_solar_artificial
+      CO2 = 4*340.
+  end if
+
 end subroutine forcing
 
 !+++++++++++++++++++++++++++++++++++++++
@@ -1460,7 +1468,7 @@ subroutine output(it, iunit, irec, mon, ts0, ta0, to0, q0, ice_cover, dq_rain, d
      ndm=jday_mon(mon)*ndt_days
      if (it/float(ndt_days)  > 365*(time_ctrl-1)) then
          if (log_exp .eq. 1 .or. log_exp .eq. 230 &
-&            .or. log_exp .eq. 20 .or. log_exp .eq. 930) then
+&            .or. log_exp .eq. 20 .or. (log_exp .ge. 930 .and. log_exp .le. 933)) then
              irec=irec+1;
              write(iunit,rec=9*irec-8)  Tmm/ndm
              write(iunit,rec=9*irec-7)  Tamm/ndm

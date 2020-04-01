@@ -965,6 +965,8 @@ class constants:
            Type of forcing to retrieve. Can be set to "cloud" or "solar".
            If not set, the forcing type will be tried to be understood from the
            scenario filename.
+        output_path : str
+           Path of the folder where to search for the artificial forcing file.
 
         Returns
         ----------
@@ -972,36 +974,46 @@ class constants:
            Path to the artificial cloud
 
         '''
-
+        # Remove extension
         sc_filename = rmext(os.path.split(sc_filename)[1])
+        # Remove years of simulation
         if sc_filename.endswith('yrs'):
             sc_filename = '_'.join(sc_filename.split('_')[:-1])
-        if forcing is None:
-            if 'exp-930.geoeng.' in sc_filename:
-                txt='exp-930.geoeng.'
-                forcing='cloud'
-            elif 'exp-931.geoeng.' in sc_filename:
-                txt='exp-931.geoeng.'
-                forcing='solar'
+        # Get experiment number
+        exp=sc_filename.split('.')[1]
+        # Control run or other (non-geoengineering) experiments
+        if exp not in ['exp-{}'.format(n) for n in ['930','931','932','933']]:
+            if forcing in ['cloud','solar']:
+                return eval('constants.{}_def_file()'.format(forcing))
             else:
-                raise Exception('Invalid scenario filename.\nSpecify "forcing",'+
-                                ' or the scenario filename must contain either '+
-                                '"exp-930.geoeng." or "exp-931.geoeng.".')
-        elif forcing == 'cloud':
-            txt='exp-930.geoeng.'
-        elif forcing == 'solar':
-            txt='exp-931.geoeng.'
-        else: raise Exception('Supported forcings are "cloud" or "solar".')
-        if output_path is None:
-            output_path = eval('constants.{}_folder()'.format(forcing))
-        if txt in sc_filename:
-            art_forcing_name = sc_filename[sc_filename.index(txt)+len(txt):]
-            return os.path.join(output_path, art_forcing_name)
-        elif ('exp-20.2xCO2' in sc_filename) or ('control.default' in sc_filename):
-            return eval('constants.{}_def_file()'.format(forcing))
+                raise Exception('Specify forcing to be either "cloud" or "solar".')
         else:
-            raise Exception('Invalid scenario filename.\nThe scenario filename'+
-                            ' must contain "{}".'.format(txt))
+            # Get forcing
+            if forcing is None:
+                if exp == 'exp-930':
+                    forcing = 'cloud'
+                else:
+                    forcing = 'solar'
+            elif forcing not in ['cloud','solar']:
+                raise Exception('Invalid forcing name "{}".\nForcing must be either "cloud" or "solar".'.format(forcing))
+            # Get artificial forcing directory
+            if output_path is None:
+                output_path = eval('constants.{}_folder()'.format(forcing))
+            # Get artificial path
+            if forcing == 'cloud':
+                if exp == 'exp-930':
+                    forcing_name='cld.artificial'
+                    name=sc_filename[sc_filename.index(forcing_name):]
+                    return os.path.join(output_path, name)
+                else:
+                    return eval('constants.{}_def_file()'.format(forcing))
+            elif forcing == 'solar':
+                if exp == 'exp-930':
+                    return eval('constants.{}_def_file()'.format(forcing))
+                else:
+                    forcing_name='sw.artificial'
+                    name=sc_filename[sc_filename.index(forcing_name):]
+                    return os.path.join(output_path, name)
 
     @staticmethod
     def get_scenario_filename(forcing_filename,years_of_simulation=50,input_path=None):
