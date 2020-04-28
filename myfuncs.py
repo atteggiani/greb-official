@@ -686,7 +686,22 @@ class DataArray(xr.DataArray):
         Function to close the longitude coord (for plotting)
 
         '''
-        return xr.concat([self, self.sel(lon=0).assign_coords(lon=360.)], dim='lon')
+        lon=["longitude","longitude_0","lon"]
+        for l in lon:
+            if l in self.dims:
+                lon=l
+                break
+        if lon==["longitude","longitude_0","lon"]:
+            raise Exception("Spatial coordinate could not be understood")
+        if (0 in self[lon]) and (360 in self[lon]):
+            return
+        elif (0 in self[lon]):
+            return xr.concat([self, self.isel({lon:0}).assign_coords(**{lon:360.})], dim=lon)
+        elif (360 in self[lon]):
+            return xr.concat([self.isel({lon:360}).assign_coords(**{lon:0.}), self], dim=lon)
+        else:
+            val=self.isel({lon:[0,-1]}).mean(lon)
+            return xr.concat([val.assign_coords(**{lon:0.}),self,val.assign_coords(**{lon:360.})], dim=lon)
 
     def annual_mean(self,copy=True,update_attrs=True):
         return annual_mean(self,copy=copy,update_attrs=update_attrs)
@@ -1097,7 +1112,7 @@ class constants:
             return constants.colormaps.add_white(cm.twilight_shifted_r,name='Div_precip')
 
         @staticmethod
-        def Div_tsurf_r():
+        def Div_precip_r():
             return constants.colormaps.Div_precip().reversed()
 
     class srex_regions:
@@ -1229,7 +1244,7 @@ def group_by(x,time_group,copy=True,update_attrs=True):
        input; set to False if you want to overwrite the input argument.
     update_attrs : Bool
         If set to True (default), the new DataArray/Dataset will have an attribute
-        as a reference that it was parsed with the "parse_var" function.
+        as a reference that it was parsed with the "parse_greb_var" function.
 
     Returns
     ----------
@@ -1370,7 +1385,7 @@ def parse_greb_var(x,update_attrs=True):
     ----------
     update_attrs : Bool
         If set to True (default), the new DataArray/Dataset will have an attribute
-        as a reference that it was parsed with the "parse_var" function.
+        as a reference that it was parsed with the "parse_greb_var" function.
 
     Returns
     ----------
