@@ -7,7 +7,7 @@ from matplotlib.ticker import MultipleLocator
 
 parser=ArgumentParser()
 parser.add_argument('-f','--forcing',type=str,default="cloud")
-parser.add_argument('-o','--ocean',type=str,default="")
+parser.add_argument('-o','--ocean', action='store_true')
 parser.add_argument('-e','--exp',type=str,default="930")
 parser.add_argument('-i','--init',type=str,
                     default=Constants.greb.output_folder()+'scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.1_50yrs')
@@ -15,7 +15,7 @@ parser.add_argument('-a','--all', action='store_true') # If included plot all it
 args=parser.parse_args()
 
 art_forcing_type=args.forcing
-ocean_flag = args.ocean
+ocean_flag = "_ocean" if args.ocean else ""
 exp_num = args.exp
 filename_first_correction = args.init
 plot_all = args.all

@@ -50,6 +50,8 @@ while (( $niter <= $tot_iter )); do
     ((niter++))
 done
 echo -e "\nPlotting iterations...\n"
-python ./plot_iter.py -i $tsurf_init -f 'solar' -o $ocean_flag
+if ! [ -z ${ocean_flag+x} ]; then o="-o"; else o=""; fi
+echo "-i ${tsurf_init} -f 'solar' ${o}"
+python ./plot_iter.py -i $tsurf_init -f 'solar' -e 931 $o
 echo -e "DONE!!\n"
 exit
