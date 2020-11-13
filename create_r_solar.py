@@ -9,11 +9,11 @@ def window(seq, n=2):
     it = iter(seq)
     result = tuple(islice(it, n))
     if len(result) == n:
-        yield result
+        return result
     for elem in it:
         result = result[1:] + (elem,)
-        yield result
-
+        return result
+ 
 def create_solar_for_r(dy=4):
     lat=constants.lat()
     lat_ = np.append(lat[::dy],lat[-1])
@@ -112,5 +112,5 @@ def create_r(dy=4):
     create_bin_ctl(constants.greb_folder()+'/r_calibration_solar',{'r':r})
     print('Done!')
 
-create_clouds_for_r(dy)
+create_solar_for_r(dy)
 create_r(dy)
