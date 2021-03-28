@@ -78,6 +78,8 @@ EOF
   exit 1
 }
 
+cd /Users/dmar0022/university/phd/greb-official
+
 while getopts haCc:e:s:y: opt; do
   case $opt in
     (e) EXP=$OPTARG
@@ -97,7 +99,7 @@ while getopts haCc:e:s:y: opt; do
   esac
 done
 
-cd /Users/dmar0022/university/phd/greb-official
+
 
 if [[ -z "$EXP" ]];
 then

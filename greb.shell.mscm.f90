@@ -137,8 +137,10 @@ end if
 
 ! Geo-engineering forcing with artificial solar radiation
 if ( log_exp .ge. 931 .and. log_exp .le. 933 ) then
-    open(28, file='swart', ACCESS='DIRECT', FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
-    read(28,rec=1) sw_solar_artificial
+    open(28, file='swart', ACCESS='DIRECT', FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    do n=1,nstep_yr
+        read(28,rec=n) sw_solar_artificial(:,:,n)
+    end do
 end if
 
 ! start greb_model run

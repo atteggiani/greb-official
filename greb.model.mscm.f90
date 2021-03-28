@@ -212,9 +212,9 @@ module mo_physics
 ! declare climate fields
   real, dimension(xdim,ydim)          ::  z_topo, glacier,z_ocean
   real, dimension(xdim,ydim,nstep_yr) ::  Tclim, uclim, vclim, omegaclim, omegastdclim, wsclim
-  real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim, cldclim_artificial
+  real, dimension(xdim,ydim,nstep_yr) ::  qclim, mldclim, Toclim, cldclim, cldclim_artificial, sw_solar_artificial
   real, dimension(xdim,ydim,nstep_yr) ::  TF_correct, qF_correct, ToF_correct, swetclim, dTrad
-  real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr, sw_solar_artificial
+  real, dimension(ydim,nstep_yr)      ::  sw_solar, sw_solar_ctrl, sw_solar_scnr
   real, dimension(xdim,ydim)          ::  co2_part      = 1.0
   real, dimension(xdim,ydim)          ::  co2_part_scn  = 1.0
 
@@ -433,7 +433,11 @@ if ( log_exp .ne. 1 .or. time_scnr .ne. 0 ) then
      radius = 1+0.01*(dradius)
      print*,'Solar radius [AU] = ', radius
      rS0 = (1/radius)**2
-     sw_solar = rS0*sw_solar
+     if ( log_exp .ge. 931 .and. log_exp .le. 933 ) then
+        sw_solar_artificial = rS0*sw_solar_artificial
+     else
+        sw_solar = rS0*sw_solar
+     end if 
   end if
   if ( log_exp .eq. 230 ) then ! change boundary conditions for Climate Change forcing
      Tclim      = Tclim + Tclim_anom_cc
@@ -624,9 +628,9 @@ subroutine SWradiation(Tsurf, sw, ice_cover)
 !    SW radiation model
 
   USE mo_numerics,    ONLY: xdim, ydim
-  USE mo_physics,     ONLY: ityr, sw_solar,da_ice, a_no_ice, a_cloud, z_topo  &
+  USE mo_physics,     ONLY: ityr, sw_solar, da_ice, a_no_ice, a_cloud, z_topo  &
 &                         , Tl_ice1, Tl_ice2, To_ice1, To_ice2, glacier       &
-&                         , cldclim, log_exp, log_atmos_dmc, log_ice, S0_var
+&                         , cldclim, log_exp, log_atmos_dmc, log_ice, S0_var, sw_solar_artificial
 
 ! declare temporary fields
   real, dimension(xdim,ydim)  :: Tsurf, sw, albedo, ice_cover, a_surf, a_atmos
@@ -663,10 +667,13 @@ subroutine SWradiation(Tsurf, sw, ice_cover)
 
 ! SW flux
   albedo=a_surf+a_atmos-a_surf*a_atmos
-  forall (i=1:xdim)
-     sw(i,:)=0.01*S0_var*sw_solar(:,ityr)*(1-albedo(i,:))
-  end forall
-
+  if ( log_exp .ge. 931 .and. log_exp .le. 933 ) then
+      sw(:,:)=0.01*S0_var*sw_solar_artificial(:,:,ityr)*(1-albedo(:,:))
+  else
+      forall (i=1:xdim)
+          sw(i,:)=0.01*S0_var*sw_solar(:,ityr)*(1-albedo(i,:))
+      end forall
+  end if
 end subroutine SWradiation
 
 
@@ -1395,15 +1402,13 @@ subroutine forcing(it, year, CO2, Tsurf)
       CO2 = 2*340.
   end if
 
-! Geo-engineering experiment with artificial SW radiation
+! Geo-engineering experiment with artificial SW radiation and 2xCO2
   if( log_exp .eq. 931 ) then
-      sw_solar = sw_solar_artificial
       CO2 = 2*340.
   end if
 
-! Geo-engineering experiment with artificial SW radiation
+! Geo-engineering experiment with artificial SW radiation and 4xCO2
   if( log_exp .eq. 932 .or. log_exp .eq. 933) then
-      sw_solar = sw_solar_artificial
       CO2 = 4*340.
   end if
 
