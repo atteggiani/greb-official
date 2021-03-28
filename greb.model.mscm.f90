@@ -3,7 +3,7 @@
 !   The Globally Resolved Energy Balance (GREB) Model
 !----------------------------------------------------------
 !
-!   Authors: Dietmar Dommenget, Janine Flöter, Tobias Bayr and Christian Stassen
+!   Authors: Dietmar Dommenget, Janine Flöter, Tobias Bayr, Christian Stassen and Davide Marchegiani
 !
 !   References:	- Conceptual Understanding of Climate Change with a
 !              	Globally Resolved Energy Balance Model
@@ -422,7 +422,6 @@ subroutine greb_model
         if (log_exp .eq. 1 .and. mod(it,nstep_yr) .eq. 0) year=year+1
       end do
   end if
-
 
 ! scenario run
 if ( log_exp .ne. 1 .or. time_scnr .ne. 0 ) then

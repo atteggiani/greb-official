@@ -1,16 +1,33 @@
-from myfuncs import *
+import warnings
+warnings.simplefilter("ignore")
+import myfuncs as my
+import xarray as xr
+import os
+from importlib import reload
+import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.cm as cm
 
+s=my.from_binary("/Users/dmar0022/university/phd/greb-official/artificial_solar_radiation/sw.artificial.iteration/sw.artificial.iter20.bin").solar
+c=my.from_binary(my.Constants.greb.solar_def_file()).solar
+a=s.anomalies()
+cond1=np.logical_and(c==0,a==0)
+p=my.DataArray(100*(a/c).where(~cond1,0))
+pp=p.groupby("time.season").mean("time")
 
-
-d=from_binary("/Users/dmar0022/university/phd/greb-official/artificial_solar_radiation/sw.artificial.iteration/sw.artificial.iter20.bin").solar
-d.annual_mean().anomalies().plotvar(
-            levels=np.linspace(-8,0,100),
-            cbar_kwargs={"ticks":np.arange(-8,1,2)},
-            cmap=cm.hsv,
-            # outpath="/Users/dmar0022/university/phd/greb-official/figures/scenario.exp-931.geoeng.sw.artificial.iteration_50yrs_0.2corr/iter20/diff_control.default/data.amean.anom.png",
-            )
-
-d.seasonal_cycle().anomalies().plotvar()
-            # outpath="/Users/dmar0022/university/phd/greb-official/figures/scenario.exp-931.geoeng.sw.artificial.iteration_50yrs_0.2corr/iter20/diff_control.default/data.seascyc.anom.png",
-            )
+# DJF
+plt.figure()
+pp.sel(season="DJF").plotvar(
+            levels=np.linspace(-10,0,100),
+            cbar_kwargs={"ticks":np.arange(-10,0+1,1),"label":"%"},
+            cmap=cm.gist_rainbow,
+            title="SW Radiation DJF Mean Anomalies"
+)
+# JJA
+plt.figure()
+pp.sel(season="JJA").plotvar(
+            levels=np.linspace(-10,0,100),
+            cbar_kwargs={"ticks":np.arange(-10,0+1,1),"label":"%"},
+            cmap=cm.gist_rainbow,
+            title="SW Radiation JJA Mean Anomalies"
+)

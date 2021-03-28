@@ -39,8 +39,6 @@ def create_solar_for_r(dy=4):
                      outpath=os.path.join(folder,'sw.artificial.lat.{:.0f}_{:.0f}_DJF'.format(l[0],l[1])))
     print('Done!')
 
-# create_solar_for_r(dy)
-
 def create_r(dy=4):
     lat=constants.lat()
     lon=constants.lon()

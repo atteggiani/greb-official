@@ -97,6 +97,8 @@ while getopts haCc:e:s:y: opt; do
   esac
 done
 
+cd /Users/dmar0022/university/phd/greb-official
+
 if [[ -z "$EXP" ]];
 then
     echo 'Please specify Experiment number!'
@@ -117,13 +119,8 @@ then
 fi
 
 # create work directory if does not already exist
-if [ ! -d work ]
-then
-    mkdir work
-else
-# else clean up work directory
-    rm -f work/*
-fi
+mkdir -p work
+rm -f work/*
 
 ### compile GREB model (uncomment one of these three options)
 gfortran -Ofast -ffast-math -funroll-loops -fopenmp greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
@@ -190,7 +187,7 @@ fi
 cat >namelist <<EOF
 &NUMERICS
 time_flux = 3  		! length of flux corrections run [yrs]
-time_ctrl = 3 		! length of control run [yrs]
+time_ctrl = 50 		! length of control run [yrs]
 time_scnr = $YEARS  	! length of scenario run [yrs]
 /
 &PHYSICS

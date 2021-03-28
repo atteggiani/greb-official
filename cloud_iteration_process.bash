@@ -7,6 +7,7 @@ usage() {
 Usage: $PROGNAME [-i <tot_iter>] [-n <tsurf>] ...
 
 Possible keys:
+-c -> correction coefficient (default 0.15)
 -o -> change clouds only over oceans
 -i -> total number of iterations
 -n -> new tsurf pattern
@@ -15,20 +16,21 @@ EOF
   exit 1
 }
 
-while getopts hi:n:o: opt; do
+while getopts hi:n:o:c: opt; do
   case $opt in
+    (c) corr=$OPTARG;;
     (o) ocean_flag="_ocean";;
     (i) tot_iter=$OPTARG;;
-    (n) tsurf=$OPTARG;;
+    (n) tsurf=$(readlink -m $OPTARG);;
     (*) usage
   esac
 done
 
-((${tot_iter:=5}))
-
-wdir=$(pwd)
+((${tot_iter:=20}))
+if ! [ -z ${ocean_flag+x} ]; then o="-o"; else o=""; fi
 # Files for 1st iteration
-tsurf=${tsurf:="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.frominput_x1.1_50yrs"}
+tsurf=${tsurf:="/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.1_50yrs"}
+corr=${corr:=0.15}
 tsurf_init=$tsurf
 sim_years=${tsurf##*_};sim_years=${sim_years%.*}
 
@@ -37,17 +39,17 @@ niter=1
 while (( $niter <= $tot_iter )); do
     # Create cloud matrix
     echo -e "\nIter. ${niter}/${tot_iter} -- Creating new cloud matrix..."
-    python cloud_iteration.py $niter $tsurf $ocean_flag
+    python cloud_iteration.py -c $corr --it $niter -t $tsurf $o
     pad="Iter. ${niter}/${tot_iter} "
     # RUN GREB
 
     printf "%*s%b" ${#pad} '' "-- Run GREB\n"
-    ./myjobscript.bash -y ${sim_years%yrs} -c "${wdir}/artificial_clouds/cld.artificial.iteration${ocean_flag}/cld.artificial.iter${niter}${ocean_flag}"
+    ./myjobscript.bash -y ${sim_years%yrs} -c "/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.iteration${ocean_flag}/cld.artificial.iter${niter}${ocean_flag}"
     # Change files for next iteration
-    tsurf="${wdir}/output/scenario.exp-930.geoeng.cld.artificial.iter${niter}${ocean_flag}_${sim_years}"
+    tsurf="/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.2xCO2.cld.artificial.iter${niter}${ocean_flag}_${sim_years}"
     ((niter++))
 done
 echo -e "\nPlotting iterations...\n"
-python ./plot_iter.py $tsurf_init 'cloud' $ocean_flag
+python ./plot_iter.py -i $tsurf_init -c $corr -f 'cloud' -e 930 $o
 echo -e "DONE!!\n"
 exit

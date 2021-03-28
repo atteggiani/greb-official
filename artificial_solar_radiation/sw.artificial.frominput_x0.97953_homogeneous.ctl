@@ -1,4 +1,4 @@
-dset ^sw.artificial.frominput_x0.96.bin
+dset ^sw.artificial.frominput_x0.97953_homogeneous.bin
 undef 9.e27
 xdef  1 linear 0 3.75
 ydef  48 linear -88.125 3.75
