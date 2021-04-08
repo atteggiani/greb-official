@@ -1,8 +1,10 @@
-from myfuncs import *
+import warnings
+warnings.simplefilter("ignore")
+import myfuncs as my 
+from myfuncs import GREB as greb
 from itertools import islice,product as iproduct
 from scipy.interpolate import griddata
-ignore_warnings()
-dy=2
+
 def window(seq, n=2):
     "Returns a sliding window (of width n) over data from the iterable"
     "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
@@ -14,10 +16,10 @@ def window(seq, n=2):
         result = result[1:] + (elem,)
         return result
  
-def create_solar_for_r(dy=4):
-    lat=constants.lat()
+def create_solar_for_S(dx=4,dy=4):
+    lat=greb.lat()
     lat_ = np.append(lat[::dy],lat[-1])
-    folder=constants.solar_folder()+'/r_calibration'
+    folder=greb.solar_folder()+'/r_calibration'
     os.makedirs(folder,exist_ok=True)
     num=len([a for a in window(lat_)])
     n=iter(np.arange(num))

@@ -1,6 +1,7 @@
 #!/bin/bash
 # run script for geo-engineering scenario experiments with the Globally Resolved Energy Balance (GREB) Model
 # Author: Davide Marchegiani
+
 PROGNAME=$0
 
 usage() {
@@ -13,7 +14,9 @@ Possible options:
 -c <artificial_cloud_file> -> "artificial cloud to be used with exp 930"
 -e <exp_num> -> "experiment number"
 -s <artificial_sw_file> -> "artificial SW radiation to be used with exp 931,932 and 933"
+-t <num_threads> -> "Number of threads to be used within the gfortran oprions"
 -y <year_num> -> "experiment length (in years)"
+-w <working directory> -> "Path to be set as working directory for the run"
 
 List of experiments with suggested experiment length (in years):
 
@@ -78,64 +81,67 @@ EOF
   exit 1
 }
 
-cd /Users/dmar0022/university/phd/greb-official
-
-while getopts haCc:e:s:y: opt; do
+while getopts hab:Cc:e:s:t:w:y: opt; do
   case $opt in
-    (e) EXP=$OPTARG
+    a) analyze=1
     ;;
-    (a) analyze=1
+    b) base_dir=$(realpath $OPTARG)
     ;;
-    (C) control=1
+    C) control=1
     ;;
-    (c) cld_artificial=$OPTARG
-        EXP=930
+    c) cld_artificial=$(realpath $OPTARG)
     ;;
-    (s) sw_artificial=$OPTARG
+    e) EXP=$OPTARG
+    ;;    
+    s) sw_artificial=$(realpath $OPTARG)
     ;;
-    (y) YEARS=$OPTARG
+    t) num_threads=$OPTARG
     ;;
+    w) working_dir=$(realpath $OPTARG)
+    ;;
+    y) YEARS=$OPTARG
+    ;; 
     (*) usage
   esac
 done
 
+base_dir=${base_dir:=/Users/dmar0022/university/phd/greb-official}
 
-
-if [[ -z "$EXP" ]];
+if [[ -z $EXP ]];
 then
-    echo 'Please specify Experiment number!'
-    echo 'For info on how to run experiment type "rungreb -h"'
+    echo 'Please specify experiment number!'
+    echo -e 'For info on how to run experiment type "rungreb -h"\n'
     exit 1
 fi
 
-if [[ "$cld_artificial" && "$EXP" != 930 ]];
+if ! [[ -z "$cld_artificial" ]]  && [[ "$EXP" != 930 ]];
 then
     echo 'Option "-c" usable only with experiment number 930.'
     echo 'For info on how to run experiment type "rungreb -h"'
     exit 1
-elif [[ "$sw_artificial" && !("$EXP" == 931 || "$EXP" == 932 || "$EXP" == 933) ]];
+elif ! [[ -z "$sw_artificial"  ]] && [[ !("$EXP" == 931 || "$EXP" == 932 || "$EXP" == 933) ]];
 then
     echo 'Option "-s" usable only with experiment number 931, 932 or 933.'
     echo 'For info on how to run experiment type "rungreb -h"'
     exit 1
 fi
 
-# create work directory if does not already exist
-mkdir -p work
-rm -f work/*
+# create working directory if does not already exist
+working_dir=${working_dir:=$base_dir/work} 
+mkdir -p $working_dir
+rm -f $working_dir/*
+
+# change to working directory
+cd $working_dir
+ln -s $base_dir $working_dir/base_dir
 
 ### compile GREB model (uncomment one of these three options)
-gfortran -Ofast -ffast-math -funroll-loops -fopenmp greb.model.mscm.f90 greb.shell.mscm.f90 -o greb.x
+gfortran -Ofast -ffast-math -funroll-loops -fopenmp $base_dir/greb.model.mscm.f90 $base_dir/greb.shell.mscm.f90 -o $working_dir/greb.x -J $working_dir
 
-export OMP_NUM_THREADS=6
+# Number of threads
+((${num_threads:=6}))
+export OMP_NUM_THREADS=$num_threads
 export KMP_AFFINITY="verbose,none"
-
-# move complied files to work directory
-mv greb.x work/.
-mv *.mod work/.
-
-# change to work directory
-cd work
 
 # experiment number for scenario run
 ((${EXP:=930}))
@@ -148,11 +154,7 @@ cd work
 
 # link artificial clouds forcing file for experiment 930
 if [ $EXP == 930 ]; then
-    # Set the name of the binary file containing the artificial clouds input for scenario
-    # run (with or without .bin).
-    # If no file is provided, the default one '../artificial_clouds/cld.artificial.bin' will be used.
-    cld_artificial=${cld_artificial:='../artificial_clouds/cld.artificial.bin'}
-
+    # Set the name of the binary file containing the artificial clouds input for scenario run (with or without .bin).
     if [ "${cld_artificial##*.}" == "bin" ] || [ "${cld_artificial##*.}" == "ctl" ] || [ "${cld_artificial##*.}" == "" ]
     then
         cld_artificial=${cld_artificial%.*}.bin
@@ -167,11 +169,7 @@ fi
 
 # link artificial SW forcing file for experiment 931
 if [[ $EXP == 931 || $EXP == 932 || $EXP == 933 ]]; then
-    # Set the name of the binary file containing the artificial SW input for scenario
-    # run (with or without .bin).
-    # If no file is provided, the default one '../artificial_solar_radiation/sw.artificial.bin' will be used.
-    sw_artificial=${sw_artificial:='../artificial_solar_radiation/sw.artificial.bin'}
-
+    # Set the name of the binary file containing the artificial SW input for scenario run (with or without .bin).
     if [ "${sw_artificial##*.}" == "bin" ] || [ "${sw_artificial##*.}" == "ctl" ] || [ "${sw_artificial##*.}" == "" ]
     then
         sw_artificial=${sw_artificial%.*}.bin
@@ -183,7 +181,6 @@ if [[ $EXP == 931 || $EXP == 932 || $EXP == 933 ]]; then
     # get name for output file
     name=$(basename ${sw_artificial%.*})
 fi
-
 
 #  generate namelist
 cat >namelist <<EOF
@@ -200,8 +197,10 @@ EOF
 
 # run greb model
 ./greb.x
-# create output directory if does not already exist
-if [ ! -d ../output ]; then mkdir ../output; fi
+
+# create output directory
+output_dir=$base_dir/output
+mkdir -p $output_dir
 
 # create filename
 case $EXP in
@@ -282,14 +281,14 @@ MONTHS=$(($YEARS*12))
 
 # SCENARIO RUN
 # rename scenario run output and move it to output folder
-mv scenario.bin ../output/scenario.${FILENAME}.bin
-cat >../output/scenario.${FILENAME}.ctl <<EOF
+mv scenario.bin $output_dir/scenario.${FILENAME}.bin
+cat > $output_dir/scenario.${FILENAME}.ctl <<EOF
 dset ^scenario.${FILENAME}.bin
 undef 9.e27
 xdef  96 linear 0 3.75
 ydef  48 linear -88.125 3.75
 zdef   1 linear 1 1
-tdef $MONTHS linear 15jan0  1mo
+tdef $MONTHS linear 15jan2000  1mo
 vars 9
 tsurf  1 0 tsurf
 tatmos 1 0 tatmos
@@ -305,14 +304,14 @@ EOF
 
 if [ -f 'scenario.gmean.bin' ]
 then
-    mv scenario.gmean.bin ../output/scenario.gmean.${FILENAME}.bin
-    cat >../output/scenario.gmean.${FILENAME}.ctl <<EOF
+    mv scenario.gmean.bin $output_dir/scenario.gmean.${FILENAME}.bin
+    cat > $output_dir/scenario.gmean.${FILENAME}.ctl <<EOF
 dset ^scenario.gmean.${FILENAME}.bin
 undef 9.e27
 xdef 12 linear 0 3.75
 ydef  1 linear -88.125 3.75
 zdef  $YEARS linear 1 1
-tdef  1 linear 15jan0  1mo
+tdef  1 linear 15jan2000  1mo
 vars 9
 tsurf  1 0 tsurf
 tatmos 1 0 tatmos
@@ -330,14 +329,14 @@ fi
 if [ $control -eq 1 ]
 then
 # rename control run output and move it to output folder
-    mv control.bin ../output/control.${FILENAME}.bin
-    cat >../output/control.${FILENAME}.ctl <<EOF
+    mv control.bin $output_dir/control.${FILENAME}.bin
+    cat > $output_dir/control.${FILENAME}.ctl <<EOF
 dset ^control.${FILENAME}.bin
 undef 9.e27
 xdef  96 linear 0 3.75
 ydef  48 linear -88.125 3.75
 zdef   1 linear 1 1
-tdef 12 linear 15jan0  1mo
+tdef 12 linear 15jan2000  1mo
 vars 9
 tsurf  1 0 tsurf
 tatmos 1 0 tatmos
@@ -352,9 +351,8 @@ endvars
 EOF
 fi
 
-cd ..
 if [[ $analyze -eq 1 ]]; then
     # Greb model output Analysys and plots
-    python ./plot_contours.py ./output/scenario.${FILENAME}
+    python ./plot_contours.py $output_dir/scenario.${FILENAME}
 fi
 exit 0

@@ -1,0 +1,94 @@
+#!/bin/bash
+
+base_dir=/Users/dmar0022/university/phd/greb-official
+output_dir=$base_dir/output
+n_year_run=30
+nlat=10
+nlon=20
+
+# REMOVE OLD FILES
+while true
+do
+    read -rs -n1 -p "REMOVE OLD FILES?? [y/n]"$'\n' ans
+    case $ans in
+    [yY])
+        rm -f $base_dir/artificial_clouds/S_sensitivity/*
+        rm -rf $output_dir/S_cloud 
+        rm -r $base_dir/S_sensitivity/cloud/temp
+        break
+    ;;
+    [nN])
+        read -rs -n1 -p "Continue running? [y/n]"$'\n' ans2
+        case $ans2 in
+        [yY])
+            break
+        ;;
+        *)
+            exit 0
+        ;;
+        esac   
+    ;;
+    *)
+    echo “Invalid input…”
+    ;;
+    esac
+done
+
+# # Create clouds for S
+# echo "Creating Clouds for S..."
+
+# python /Users/dmar0022/university/phd/greb-official/S_sensitivity/cloud/create_clouds_for_Scld.py --nlat $nlat --nlon $nlon
+
+# Run GREB experiments in parallel
+
+num_parallel_run=5
+n_threads=2
+echo "Running GREB experiments for ${n_year_run} years (${num_parallel_run} in parallel)..."
+files=(/Users/dmar0022/university/phd/greb-official/artificial_clouds/S_sensitivity/*.bin)
+tot=${#files[@]}
+rest=$(( tot - (tot/num_parallel_run)*num_parallel_run ))
+
+i=0
+while [[ $i -lt $tot ]]
+do
+    echo "RUN GREB - $((i+num_parallel_run))/$tot ===================================================================================="
+    cld=(${files[@]:$i:$num_parallel_run})
+    for n in $(seq 1 $num_parallel_run); do 
+        echo "$n - $(basename ${cld[((n-1))]})"
+    done
+    # !!!!!!!!!!!!!!!! THE NUMBER OF THE LINES BETWEEN THE EXCLAMATION POINTS MUST BE EQUAL TO num_parallel_run !!!!!!!!!!!!!!!!
+    /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c ${cld[0]} -w $base_dir/work -t $n_threads & \
+    /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c ${cld[1]} -w $base_dir/work1 -t $n_threads & \
+    /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c ${cld[2]} -w $base_dir/work2 -t $n_threads & \
+    /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c ${cld[3]} -w $base_dir/work3 -t $n_threads & \
+    /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c ${cld[4]} -w $base_dir/work4 -t $n_threads 
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    wait
+    i=$((i+num_parallel_run))
+    i=1000
+done
+
+if (( rest > 0 )); then
+    echo "MAMMAAAAAAAA"
+    for i in $(seq $((tot-rest+1)) $tot)
+    do
+        cld=${files[$((i-1))]}
+        echo "RUN GREB - $((i))/$tot ====================================================================================================="
+        echo "$(basename $cld)"
+        /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c $cld -w work
+    done
+fi 
+exit 0
+# mkdir $output_dir/S_cloud 
+# mv $output_dir/scenario.exp-930.geoeng.2xCO2.cld.artificial.lat.* $output_dir/S_cloud 
+# echo -e "\nDONE!!\n"
+
+# Create S chunks
+echo "Creating S chunks...\n"
+python /Users/dmar0022/university/phd/greb-official/create_Scld.py -y $n_year_run
+echo -e "\nDONE!!\n"
+
+# Create S
+# echo "Creating S...\n"
+# python /Users/dmar0022/university/phd/greb-official/finialize_S_cloud.py
+# echo -e "\nDONE!!\n"

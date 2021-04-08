@@ -23,35 +23,63 @@ read(10,numerics)
 read(10,physics)
 
 if ( log_clim .eq. 0 ) then ! ERA-Interim
-  open(11,file='../input/erainterim.tsurf.1979-2015.clim.bin',  	ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(12,file='../input/erainterim.zonal_wind.850hpa.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(13,file='../input/erainterim.meridional_wind.850hpa.clim.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(14,file='../input/erainterim.atmospheric_humidity.clim.bin',        ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(15,file='../input/isccp.cloud_cover.clim.bin',     	ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(16,file='../input/ncep.soil_moisture.clim.bin',   	ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(17,file='../input/Tocean.clim.bin',			ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(18,file='../input/woce.ocean_mixed_layer_depth.clim.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(19,file='../input/global.topography.bin',      		ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(20,file='../input/greb.glaciers.bin',   			ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(21,file='../input/solar_radiation.clim.bin', 		ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
-  open(22,file='../input/erainterim.windspeed.850hpa.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(23,file='../input/erainterim.omega.vertmean.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(24,file='../input/erainterim.omega_std.vertmean.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(11,file='base_dir/input/erainterim.tsurf.1979-2015.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(12,file='base_dir/input/erainterim.zonal_wind.850hpa.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(13,file='base_dir/input/erainterim.meridional_wind.850hpa.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(14,file='base_dir/input/erainterim.atmospheric_humidity.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(15,file='base_dir/input/isccp.cloud_cover.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(16,file='base_dir/input/ncep.soil_moisture.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(17,file='base_dir/input/Tocean.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(18,file='base_dir/input/woce.ocean_mixed_layer_depth.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(19,file='base_dir/input/global.topography.bin',& 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(20,file='base_dir/input/greb.glaciers.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(21,file='base_dir/input/solar_radiation.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
+  open(22,file='base_dir/input/erainterim.windspeed.850hpa.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(23,file='base_dir/input/erainterim.omega.vertmean.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(24,file='base_dir/input/erainterim.omega_std.vertmean.clim.bin', &
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
 else if ( log_clim .eq. 1 ) then ! NCEP
-  open(11,file='../input/ncep.tsurf.1948-2007.clim.bin',  	ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(12,file='../input/ncep.zonal_wind.850hpa.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(13,file='../input/ncep.meridional_wind.850hpa.clim.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(14,file='../input/ncep.atmospheric_humidity.clim.bin',        ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(15,file='../input/isccp.cloud_cover.clim.bin',     	ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(16,file='../input/ncep.soil_moisture.clim.bin',   	ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(17,file='../input/Tocean.clim.bin',			ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(18,file='../input/woce.ocean_mixed_layer_depth.clim.bin',ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(19,file='../input/global.topography.bin',      		ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(20,file='../input/greb.glaciers.bin',   			ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(21,file='../input/solar_radiation.clim.bin', 		ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
-  open(22,file='../input/erainterim.windspeed.850hpa.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(23,file='../input/ncep.omega.vertmean.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(24,file='../input/ncep.omega_std.vertmean.clim.bin',      ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(11,file='base_dir/input/ncep.tsurf.1948-2007.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(12,file='base_dir/input/ncep.zonal_wind.850hpa.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(13,file='base_dir/input/ncep.meridional_wind.850hpa.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(14,file='base_dir/input/ncep.atmospheric_humidity.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(15,file='base_dir/input/isccp.cloud_cover.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(16,file='base_dir/input/ncep.soil_moisture.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(17,file='base_dir/input/Tocean.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(18,file='base_dir/input/woce.ocean_mixed_layer_depth.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(19,file='base_dir/input/global.topography.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(20,file='base_dir/input/greb.glaciers.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(21,file='base_dir/input/solar_radiation.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*ydim*nstep_yr)
+  open(22,file='base_dir/input/erainterim.windspeed.850hpa.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(23,file='base_dir/input/ncep.omega.vertmean.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(24,file='base_dir/input/ncep.omega_std.vertmean.clim.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
 end if
 
 ! read climatologies
@@ -87,11 +115,16 @@ end if
 
 ! open external forcing for climate change (ensemble mean) (it is read in forcing subroutine)
 if ( log_exp .eq. 230 ) then
-  open(31,file='../input/cmip5.tsurf.rcp85.ensmean.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(32,file='../input/cmip5.zonal.wind.rcp85.ensmean.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(33,file='../input/cmip5.meridional.wind.rcp85.ensmean.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(34,file='../input/cmip5.omega.rcp85.ensmean.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-  open(35,file='../input/cmip5.windspeed.rcp85.ensmean.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(31,file='base_dir/input/cmip5.tsurf.rcp85.ensmean.forcing.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(32,file='base_dir/input/cmip5.zonal.wind.rcp85.ensmean.forcing.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(33,file='base_dir/input/cmip5.meridional.wind.rcp85.ensmean.forcing.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(34,file='base_dir/input/cmip5.omega.rcp85.ensmean.forcing.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+  open(35,file='base_dir/input/cmip5.windspeed.rcp85.ensmean.forcing.bin', & 
+  & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
   do i=1,nstep_yr ! Read in the anomalies
     if (log_tsurf_ext .eq. 1) read(31,rec=i) Tclim_anom_cc(:,:,i)
     if (log_hwind_ext .eq. 1) read(32,rec=i) uclim_anom_cc(:,:,i)
@@ -105,18 +138,28 @@ end if
 if ( log_exp .eq. 240 .or. log_exp .eq. 241 ) then
   ! open external forcing for El Nino (era-interim composite mean) (it is read in forcing subroutine)
   if ( log_exp .eq. 240 ) then
-    open(41,file='../input/erainterim.tsurf.elnino.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(42,file='../input/erainterim.zonal.wind.elnino.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(43,file='../input/erainterim.meridional.wind.elnino.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(44,file='../input/erainterim.omega.elnino.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(45,file='../input/erainterim.windspeed.elnino.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(41,file='base_dir/input/erainterim.tsurf.elnino.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(42,file='base_dir/input/erainterim.zonal.wind.elnino.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(43,file='base_dir/input/erainterim.meridional.wind.elnino.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(44,file='base_dir/input/erainterim.omega.elnino.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(45,file='base_dir/input/erainterim.windspeed.elnino.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
   ! open external forcing for La Nina (era-interim composite mean) (it is read in forcing subroutine)
   else if ( log_exp .eq. 241 ) then
-    open(41,file='../input/erainterim.tsurf.lanina.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(42,file='../input/erainterim.zonal.wind.lanina.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(43,file='../input/erainterim.meridional.wind.lanina.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(44,file='../input/erainterim.omega.lanina.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
-    open(45,file='../input/erainterim.windspeed.lanina.forcing.bin', ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(41,file='base_dir/input/erainterim.tsurf.lanina.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(42,file='base_dir/input/erainterim.zonal.wind.lanina.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(43,file='base_dir/input/erainterim.meridional.wind.lanina.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(44,file='base_dir/input/erainterim.omega.lanina.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
+    open(45,file='base_dir/input/erainterim.windspeed.lanina.forcing.bin', & 
+    & ACCESS='DIRECT',FORM='UNFORMATTED', RECL=ireal*xdim*ydim)
   end if
   do i=1,nstep_yr ! Read in the anomalies
     if (log_tsurf_ext .eq. 1) read(41,rec=i) Tclim_anom_enso(:,:,i)
