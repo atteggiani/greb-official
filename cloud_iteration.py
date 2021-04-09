@@ -43,7 +43,7 @@ dCLD_new = -(corr/S_cld)*(dt)
 dCLD_new=dCLD_new.where(np.abs(S_cld)>=1,0) # Correction for small S_cld
 
 # If ocean_flag is active, change clouds only over ocean
-if ocean_flag is "_ocean":
+if ocean_flag == "_ocean":
     new_cloud = np.where(greb.land_ocean_mask(),dCLD_new+cld_base,cld_base)
 else:
     new_cloud = dCLD_new+cld_base

@@ -83,7 +83,7 @@ echo "Creating S chunks...\n"
 python /Users/dmar0022/university/phd/greb-official/S_sensitivity/cloud/create_Scld.py -y $n_year_run
 echo -e "\nDONE!!\n"
 
-# Create S
-# echo "Creating S...\n"
-# python /Users/dmar0022/university/phd/greb-official/finialize_S_cloud.py
-# echo -e "\nDONE!!\n"
+Create S
+echo "Creating S...\n"
+python /Users/dmar0022/university/phd/greb-official/finialize_S_cloud.py
+echo -e "\nDONE!!\n"

@@ -9,8 +9,8 @@ Usage: $PROGNAME [-i <tot_iter>] [-n <tsurf>] ...
 Possible keys:
 -c -> correction coefficient (default 0.15)
 -o -> change clouds only over oceans
--i -> total number of iterations
--n -> new tsurf pattern
+-i -> total number of iterations (default 20)
+-n -> 0th iteration new tsurf pattern 
 
 EOF
   exit 1
@@ -44,7 +44,7 @@ while (( $niter <= $tot_iter )); do
     # RUN GREB
 
     printf "%*s%b" ${#pad} '' "-- Run GREB\n"
-    ./myjobscript.bash -y ${sim_years%yrs} -c "/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.iteration${ocean_flag}/cld.artificial.iter${niter}${ocean_flag}"
+    ./myjobscript.bash -e 930 -y ${sim_years%yrs} -c "/Users/dmar0022/university/phd/greb-official/artificial_clouds/cld.artificial.iteration${ocean_flag}/cld.artificial.iter${niter}${ocean_flag}"
     # Change files for next iteration
     tsurf="/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.2xCO2.cld.artificial.iter${niter}${ocean_flag}_${sim_years}"
     ((niter++))
