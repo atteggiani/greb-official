@@ -98,6 +98,6 @@ print(f'0/{tot}',end="\r")
 if __name__ == '__main__':
     with cf.ProcessPoolExecutor() as executor:
         for _ in executor.map(main, bounds):
-            print(f'{next(n)}/{tot}',end="\r\t")
+            print(f'{next(n)}/{tot}',end="\r")
 # finish=time.perf_counter()
 # print(f"Execution took: {round(finish-start,2)} second(s)")

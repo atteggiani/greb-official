@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export PYTHONWARNINGS='ignore:semaphore_tracker:UserWarning'
 base_dir=/Users/dmar0022/university/phd/greb-official
 output_dir=$base_dir/output
 n_year_run=30
@@ -36,11 +36,9 @@ done
 
 # # Create clouds for S
 # echo "Creating Clouds for S..."
-
 # python /Users/dmar0022/university/phd/greb-official/S_sensitivity/cloud/create_clouds_for_Scld.py --nlat $nlat --nlon $nlon
 
 # Run GREB experiments in parallel
-
 num_parallel_run=5
 n_threads=2
 echo "Running GREB experiments for ${n_year_run} years (${num_parallel_run} in parallel)..."
@@ -65,11 +63,9 @@ do
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     wait
     i=$((i+num_parallel_run))
-    i=1000
 done
 
 if (( rest > 0 )); then
-    echo "MAMMAAAAAAAA"
     for i in $(seq $((tot-rest+1)) $tot)
     do
         cld=${files[$((i-1))]}
@@ -78,14 +74,13 @@ if (( rest > 0 )); then
         /Users/dmar0022/university/phd/greb-official/myjobscript.bash -e 930 -y $n_year_run -c $cld -w work
     done
 fi 
-exit 0
-# mkdir $output_dir/S_cloud 
-# mv $output_dir/scenario.exp-930.geoeng.2xCO2.cld.artificial.lat.* $output_dir/S_cloud 
-# echo -e "\nDONE!!\n"
+mkdir $output_dir/S_cloud 
+mv $output_dir/scenario.exp-930.geoeng.2xCO2.cld.artificial.lat.* $output_dir/S_cloud 
+echo -e "\nDONE!!\n"
 
 # Create S chunks
 echo "Creating S chunks...\n"
-python /Users/dmar0022/university/phd/greb-official/create_Scld.py -y $n_year_run
+python /Users/dmar0022/university/phd/greb-official/S_sensitivity/cloud/create_Scld.py -y $n_year_run
 echo -e "\nDONE!!\n"
 
 # Create S
