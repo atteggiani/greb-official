@@ -13,7 +13,7 @@ parser.add_argument('-f','--forcing',type=str,default="cloud")
 parser.add_argument('-o','--ocean', action='store_true')
 parser.add_argument('-e','--exp',type=str,default="930")
 parser.add_argument('-i','--init',type=str,
-                    default=my.GREB.output_folder()+'scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.1_50yrs')
+                    default=None)
 parser.add_argument('-a','--all', action='store_true') # If included plot all iteration, otherwise plots only the last
 parser.add_argument('-c','--corr',type=np.float)
 args=parser.parse_args()
@@ -29,45 +29,47 @@ ntimesteps = 30*12
 if art_forcing_type == "cloud":
     shortname='cld'
     art_forcing_folder=my.GREB.cloud_folder()
+    if filename_first_correction is None: 
+        filename_first_correction=os.path.join(my.GREB.output_folder(),'scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.1_50yrs')
 elif art_forcing_type == "solar":
     shortname='sw'
     art_forcing_folder=my.GREB.solar_folder()
+    if filename_first_correction is None: 
+        filename_first_correction=os.path.join(my.GREB.output_folder(),'scenario.exp-931.geoeng.2xCO2.sw.artificial.frominput_x0.98_50yrs')
 else:
     raise Exception("Artificial forcing type must be either 'cloud' or 'solar'.")
 
 exp_name = my.GREB.get_exp_name(exp_num)
 sim_years = my.GREB.get_years_of_simulation(filename_first_correction)
-
 rms_a = []
 rms_s = []
-
 name_base = os.path.split(my.GREB.control_def_file())[1]
-
 filename_original = my.GREB.scenario_2xCO2()
+
 data = my.GREB.from_binary(filename_original)
-rms_a.append(data.annual_mean().anomalies().rms().tsurf.values)
-rms_s.append(data.seasonal_cycle().anomalies().rms().tsurf.values)
+rms_a.append(data.tsurf.annual_mean().anomalies().rms().values)
+rms_s.append(data.tsurf.seasonal_cycle().anomalies().rms().values)
 
 data = my.GREB.from_binary(filename_first_correction)
-rms_a.append(data.annual_mean().anomalies().rms().tsurf.values)
-rms_s.append(data.seasonal_cycle().anomalies().rms().tsurf.values)
+rms_a.append(data.tsurf.annual_mean().anomalies().rms().values)
+rms_s.append(data.tsurf.seasonal_cycle().anomalies().rms().values)
 
 # Setting figures output directories
 outdir=os.path.join(my.GREB.figures_folder(),
-        'scenario.{}.{}.artificial.iteration{}_{}yrs_{}corr'.format(exp_name,shortname,ocean_flag,sim_years,corr))
+        f'scenario.{exp_name}.{shortname}.artificial.iteration{ocean_flag}_{sim_years}yrs_{corr}corr')
 os.makedirs(outdir,exist_ok=True)      
 niter = 1
 filename = lambda it: os.path.join(my.GREB.output_folder(),
-        'scenario.{}.{}.artificial.iter{}{}_{}yrs'.format(exp_name,shortname,it,ocean_flag,sim_years))
+        f'scenario.{exp_name}.{shortname}.artificial.iter{it}{ocean_flag}_{corr}corr_{sim_years}yrs')
 
 while os.path.isfile(my.rmext(filename(niter))+'.bin'):
     print('-- Iter. {}'.format(niter))
     # Import data
     data = my.GREB.from_binary(filename(niter))
-    rms_a.append(data.annual_mean(ntimesteps).anomalies().rms().tsurf.values)
-    rms_s.append(data.seasonal_cycle(ntimesteps).anomalies().rms().tsurf.values)
+    rms_a.append(data.tsurf.annual_mean(ntimesteps).anomalies().rms().values)
+    rms_s.append(data.tsurf.seasonal_cycle(ntimesteps).anomalies().rms().values)
     if (plot_all) or not os.path.isfile(my.rmext(filename(niter+1))+'.bin'):
-        art_forcing_filename = my.GREB.get_art_forcing_filename(filename(niter),forcing = art_forcing_type, output_path = art_forcing_folder+'/{}.artificial.iteration'.format(shortname))
+        art_forcing_filename = my.GREB.get_art_forcing_filename(filename(niter),forcing = art_forcing_type, output_path = art_forcing_folder+f'/{shortname}.artificial.iteration_{corr}corr')
         # Setting figures output directories
         outdir_abs=os.path.join(outdir,'iter{}'.format(niter),'absolute')
         outdir_diff=os.path.join(outdir,'iter{}'.format(niter),'diff_'+name_base)

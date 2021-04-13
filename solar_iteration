@@ -1,0 +1,61 @@
+#!/bin/bash
+# Author: Davide Marchegiani
+PROGNAME=$0
+
+usage() {
+  cat << EOF
+Usage: $PROGNAME [-i <tot_iter>] [-n <tsurf>] ...
+
+Possible keys:
+-c -> correction coefficient (default 0.15)
+-o -> change solar only over oceans
+-i -> total number of iterations (default 20)
+-n -> 0th iteration new tsurf pattern 
+-w <working directory> -> "Path to be set as working directory for the run"
+
+EOF
+  exit 1
+}
+
+while getopts hi:n:o:c:w: opt; do
+  case $opt in
+    c) corr=$OPTARG;;
+    o) ocean_flag="_ocean";;
+    i) tot_iter=$OPTARG;;
+    n) tsurf=$(readlink -m $OPTARG);;
+    w) working_dir=$(realpath $OPTARG);;
+    (*) usage
+  esac
+done
+
+
+working_dir=${working_dir:=/Users/dmar0022/university/phd/greb-official/work} 
+((${tot_iter:=20}))
+if ! [ -z ${ocean_flag+x} ]; then o="-o"; else o=""; fi
+# Files for 1st iteration
+tsurf=${tsurf:="/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.2xCO2.sw.artificial.frominput_x0.98_50yrs"}
+corr=${corr:=0.15}
+tsurf_init=$tsurf
+sim_years=${tsurf##*_};sim_years=${sim_years%.*}
+
+solar_folder=/Users/dmar0022/university/phd/greb-official/artificial_solar_radiation/sw.artificial.iteration${ocean_flag}_${corr}corr
+# Initialize iterations
+niter=1
+while (( $niter <= $tot_iter )); do
+    solar_name=sw.artificial.iter${niter}${ocean_flag}_${corr}corr
+    # Create solar matrix
+    echo -e "\nIter. ${niter}/${tot_iter} -- Creating new solar matrix..."
+    python solar_iteration_process.py -c $corr --it $niter -t $tsurf $o
+    pad="Iter. ${niter}/${tot_iter} "
+    # RUN GREB
+
+    printf "%*s%b" ${#pad} '' "-- Run GREB\n"
+    ./myjobscript.bash -e 931 -y ${sim_years%yrs} -s $solar_folder/$solar_name -w $working_dir
+    # Change files for next iteration
+    tsurf=/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.2xCO2.sw.artificial.iter${niter}${ocean_flag}_${corr}corr_${sim_years}
+    ((niter++))
+done
+echo -e "\nPlotting iterations...\n"
+python ./plot_iter.py -i $tsurf_init -c $corr -f 'solar' -e 931 $o
+echo -e "DONE!!\n"
+exit

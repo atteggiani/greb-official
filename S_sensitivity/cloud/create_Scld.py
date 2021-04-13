@@ -85,19 +85,12 @@ lon=[0]+[l+0.01 if l in greb.lon() else l for l in lon[1:-1]]+[360]
 output_folder = "/Users/dmar0022/university/phd/greb-official/S_sensitivity/cloud/temp"
 os.makedirs(output_folder,exist_ok=True)
 bounds=iproduct(window(lat),window(lon))
-# bounds=list(iproduct(window(lat),window(lon)))
 cld_ctl=greb.from_binary(greb.cloud_def_file()).cloud
 ctl=greb.from_binary(greb.scenario_2xCO2()).tsurf
 n=count(1)
 
-# start=time.perf_counter()
-# for bound in bounds:
-#     print(f'{next(n)}/{tot}')
-#     main(bound)
 print(f'0/{tot}',end="\r")
 if __name__ == '__main__':
     with cf.ProcessPoolExecutor() as executor:
         for _ in executor.map(main, bounds):
             print(f'{next(n)}/{tot}',end="\r")
-# finish=time.perf_counter()
-# print(f"Execution took: {round(finish-start,2)} second(s)")

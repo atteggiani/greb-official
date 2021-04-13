@@ -9,4 +9,5 @@ input/figures/
 __pycache__
 code_info.txt
 artificial_clouds/
+artificial_solar_radiation/
 old_scripts/

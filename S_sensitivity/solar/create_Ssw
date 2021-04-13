@@ -1,0 +1,110 @@
+#!/bin/bash
+export PYTHONWARNINGS='ignore:semaphore_tracker:UserWarning'
+exp_num=931
+base_dir=/Users/dmar0022/university/phd/greb-official
+output_dir=$base_dir/output
+n_year_run=30
+nlat=10
+nlon=20
+
+# REMOVE OLD FILES
+while true
+do
+    read -rs -n1 -p "REMOVE OLD FILES?? [y/n]"$'\n' ans
+    case $ans in
+    [yY])
+        rm -rf $base_dir/artificial_solar_radiation/S_sensitivity
+        rm -rf $output_dir/S_solar 
+        rm -r $base_dir/S_sensitivity/solar/temp
+        break
+    ;;
+    [nN])
+        read -rs -n1 -p "Continue running? [y/n]"$'\n' ans2
+        case $ans2 in
+        [yY])
+            break
+        ;;
+        *)
+            exit 0
+        ;;
+        esac   
+    ;;
+    *)
+    echo “Invalid input…”
+    ;;
+    esac
+done
+
+# Create solar for S
+echo "Creating Solar for S..."
+python $base_dir/S_sensitivity/solar/create_solar_for_Ssw.py --nlat $nlat --nlon $nlon
+
+# Run GREB experiments in parallel
+num_parallel_run=5
+n_threads=2
+echo "Running GREB experiments for ${n_year_run} years (${num_parallel_run} in parallel)..."
+files=($base_dir/artificial_solar_radiation/S_sensitivity/*.bin)
+tot=${#files[@]}
+rest=$(( tot - (tot/num_parallel_run)*num_parallel_run ))
+
+i=0
+while [[ $i -lt $tot ]]
+do
+    echo "RUN GREB - $((i+num_parallel_run))/$tot ===================================================================================="
+    sw=(${files[@]:$i:$num_parallel_run})
+    run_command=""
+    for n in $(seq 1 $num_parallel_run); do 
+        echo "$n - $(basename ${sw[((n-1))]})"
+        run_command+="/Users/dmar0022/university/phd/greb-official/myjobscript.bash -e $exp_num -y $n_year_run -s ${sw[$((n-1))]} -w $base_dir/work${n} -t $n_threads & "
+    done
+    eval "${run_command%& }"
+    wait
+    i=$((i+num_parallel_run))
+done
+
+if (( rest > 0 )); then
+    n=1
+    run_command=""
+    for i in $(seq $((tot-rest+1)) $tot)
+    do
+        sw=${files[$((i-1))]}
+        run_command+="/Users/dmar0022/university/phd/greb-official/myjobscript.bash -e $exp_num -y $n_year_run -s $sw -w $base_dir/work${n} -t $n_threads & "
+        echo "$n - $(basename $sw)"
+        ((n++))
+    done
+    echo "RUN GREB - $tot/$tot ====================================================================================================="
+    eval "${run_command%& }"
+    wait
+fi 
+mkdir $output_dir/S_solar 
+mv $output_dir/scenario.exp-${exp_num}.geoeng.2xCO2.sw.artificial.lat.* $output_dir/S_solar 
+echo -e "\nDONE!!\n"
+
+# Create S chunks
+echo "Creating S chunks...\n"
+python $base_dir/S_sensitivity/solar/create_Ssw.py -y $n_year_run
+echo -e "\nDONE!!\n"
+
+# Create S
+echo "Creating S...\n"
+python $base_dir/S_sensitivity/solar/finalize_Ssw.py
+echo -e "\nDONE!!\n"
+
+while true
+do
+    read -rs -n1 -p "REMOVE CREATION FILES FOR Ssw?? [y/n]"$'\n' ans
+    case $ans in
+    [yY])
+        rm -rf $base_dir/artificial_solar_radiation/S_sensitivity
+        rm -rf $output_dir/S_solar 
+        rm -rf $base_dir/S_sensitivity/solar/temp
+        exit 0
+    ;;
+    [nN])
+    exit 0
+    ;;
+    *)
+    echo “Invalid input…”
+    ;;
+    esac
+done
