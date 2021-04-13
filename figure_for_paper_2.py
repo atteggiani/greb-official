@@ -16,7 +16,7 @@ matplotlib.rcParams.update({'font.size': 14})
 nlev=200
 
 # DATA
-r_cld=greb.from_binary(greb.greb_folder()+'/r_calibration_cloud').r
+S_cld=greb.from_binary(greb.greb_folder()+'/S_sensitivity/cloud/Scld').S
 r_sw=greb.from_binary(greb.greb_folder()+'/r_calibration_solar').r
 
 def plot_fig2_sw(nlev=100):
@@ -70,14 +70,14 @@ def plot_fig2_cld(nlev=100):
                          bottom=0, top=1)
     # S ANNUAL MEAN
     ax1 = fig.add_subplot(gs1[0, 0],projection=ccrs.Robinson())
-    im=r_cld.annual_mean(30*12).plotvar(ax=ax1,
+    im=S_cld.annual_mean(30*12).plotvar(ax=ax1,
                                 add_colorbar=False,
                                 levels=np.linspace(-10,0,nlev),
                                 cmap=cm.viridis,
                                 title='$S_{CLD}$')
     # S DJF MEAN
     ax2 = fig.add_subplot(gs1[0, 1],projection=ccrs.Robinson())
-    im2=r_cld.isel(time=slice(-30*12,None)).group_by('season').sel(time='DJF').plotvar(ax=ax2,
+    im2=S_cld.isel(time=slice(-30*12,None)).group_by('season').sel(time='DJF').plotvar(ax=ax2,
                                 add_colorbar=False,
                                 levels=np.linspace(-10,3,nlev),
                                 norm = colors.DivergingNorm(vmin=-10,vcenter=0,vmax=3),
@@ -85,7 +85,7 @@ def plot_fig2_cld(nlev=100):
                                 title='$S_{CLD}$ DJF')
     # S JJA MEAN                                
     ax3 = fig.add_subplot(gs1[0, 2],projection=ccrs.Robinson())
-    r_cld.isel(time=slice(-30*12,None)).group_by('season').sel(time='JJA').plotvar(ax=ax3,
+    S_cld.isel(time=slice(-30*12,None)).group_by('season').sel(time='JJA').plotvar(ax=ax3,
                                 add_colorbar=False,
                                 levels=np.linspace(-10,3,nlev),
                                 norm = colors.DivergingNorm(vmin=-10,vcenter=0,vmax=3),
@@ -105,4 +105,4 @@ plot_fig2_sw(nlev)
 plt.savefig(os.path.join(output_folder,"fig2_sw.png"),dpi=300,bbox_inches="tight")
 
 plot_fig2_cld(nlev)
-plt.savefig(os.path.join(output_folder,"fig2_cld.png"),dpi=300,bbox_inches="tight")
+plt.savefig(os.path.join(output_folder,"fig2_cld_new.png"),dpi=300,bbox_inches="tight")

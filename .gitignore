@@ -2,7 +2,7 @@
 .DS_Store
 *.nc
 *.mod
-work/
+work*/
 output/
 figures/
 input/figures/

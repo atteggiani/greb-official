@@ -10,4 +10,4 @@ import os
 from argparse import ArgumentParser
 import matplotlib.cm as cm
 
-a=greb.from_binary("/Users/dmar0022/university/phd/greb-official/S_sensitivity/solar/Ssw.bin").S
+greb.create_solar(value=lambda x:x*0.5,tridimensional=True,outpath=os.path.join(greb.solar_folder(),"test3D"))
