@@ -5,14 +5,6 @@ program  greb_shell
 USE mo_numerics
 USE mo_physics
 
-! declare output fields
-real, dimension(xdim,ydim,ndays_yr) :: Tc1, Ta1, q1, ap1
-real, dimension(xdim,ydim,ndays_yr) :: Tc2, Ta2, q2, ap2
-
-integer, dimension(ndays_yr)::  t = (/(i,i=1,ndays_yr)/) ! jday index
-
-100 FORMAT('climate: ',F9.2, 5E12.4)
-
 print*,'% start climate shell'
 
 ! open input files
