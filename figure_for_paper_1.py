@@ -18,10 +18,10 @@ nlev=200
 # DATA
 # control=greb.from_binary(greb.control_def_file())[['tsurf','precip']]
 co2x2=greb.from_binary(os.path.join(greb.scenario_2xCO2()))[['tsurf','precip']]
-srm_sw=greb.from_binary(os.path.join(greb.output_folder(),'scenario.exp-931.geoeng.2xCO2.sw.artificial.iter20_50yrs'))[['tsurf','precip']]
-srm_cld=greb.from_binary(os.path.join(greb.output_folder(),'scenario.exp-930.geoeng.2xCO2.cld.artificial.iter20_50yrs'))[['tsurf','precip']]
-homogeneous_sw=greb.from_binary(os.path.join(greb.output_folder(),'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.2xCO2.sw.artificial.frominput_x0.97953_homogeneous_50yrs.bin'))[['tsurf','precip']]
-homogeneous_cld=greb.from_binary(os.path.join(greb.output_folder(),'/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.09093_homogeneous_50yrs.bin'))[['tsurf','precip']]
+srm_sw=greb.from_binary(os.path.join(greb.output_folder(),'scenario.exp-931.geoeng.2xCO2.sw.artificial.iter5_0.34corr_50yrs'))[['tsurf','precip']]
+srm_cld=greb.from_binary(os.path.join(greb.output_folder(),'scenario.exp-930.geoeng.2xCO2.cld.artificial.iter16_0.3corr_50yrs'))[['tsurf','precip']]
+homogeneous_sw=greb.from_binary("/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.2xCO2.sw.artificial.frominput_x0.97954535_homogeneous_50yrs.bin")[['tsurf','precip']]
+homogeneous_cld=greb.from_binary("/Users/dmar0022/university/phd/greb-official/output/scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.093056_homogeneous_50yrs.bin")[['tsurf','precip']]
 
 # SW
 def plot_fig1_amean_sw(nlev=100):
@@ -36,28 +36,71 @@ def plot_fig1_amean_sw(nlev=100):
     gs1=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.95,bottom=0.55)
+                         top=0.97,bottom=0.52,
+                         left=0.1,right=0.95)
     gs2=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.45,bottom=0.05)
+                         top=0.46,bottom=0.01,
+                         left=0.1,right=0.95)
+    gs3=fig1.add_gridspec(ncols=1, nrows=2,
+                          hspace=hspace,
+                         left=0.05,right=0.1)
+    gs4=fig1.add_gridspec(ncols=ncols, nrows=1,
+                         wspace=wspace,
+                         top=0.99,bottom=0.95,
+                         left=0.1,right=0.95)
+    # PLOT TITLES
+    f1_axt1 = fig1.add_subplot(gs4[0, 0])
+    plt.text(0.5,0,"2xCO2",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axt2 = fig1.add_subplot(gs4[0, 1])
+    plt.text(0.5,0,"Homogeneous SRM$_{SW}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axtt3 = fig1.add_subplot(gs4[0, 2])
+    plt.text(0.5,0,"Localized SRM$_{SW}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)     
+    plt.axis('off')                                     
+    # VARIABLE TITLES  
+    f1_ax1 = fig1.add_subplot(gs3[0, 0])
+    plt.text(0.3,0.7,"SURFACE\nTEMPERATURE",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)
+    plt.axis('off')
+    f1_ax1 = fig1.add_subplot(gs3[1, 0])             
+    plt.text(0.3,0.42,"PRECIPITATION",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)             
+    plt.axis('off')               
     # TSURF  
     f1_ax1 = fig1.add_subplot(gs1[0, 0],projection=ccrs.Robinson())
     im=fun(co2x2.tsurf).anomalies().plotvar(ax=f1_ax1,
                                    levels=np.linspace(1,5,nlev),
                                    cmap=my.Colormaps.seq_tsurf_hot,
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Surface Temperature')
+                                   title='')
     f1_ax2 = fig1.add_subplot(gs1[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_sw.tsurf).anomalies().plotvar(ax=f1_ax2,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Surface Temperature')
+                                   title='')
     f1_ax3 = fig1.add_subplot(gs1[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_sw.tsurf).anomalies().plotvar(ax=f1_ax3,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{SW}$ Surface Temperature')
+                                   title='')
     # Tsurf Colorbars
     f1_ax4 = fig1.add_subplot(gs1[1, 0])
     plt.colorbar(im,cax=f1_ax4, orientation='horizontal',label='K',
@@ -71,17 +114,17 @@ def plot_fig1_amean_sw(nlev=100):
                                    levels=np.linspace(0,1.5,nlev),
                                    cmap=my.Colormaps.seq_precip_wet,
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Precipitation')
+                                   title='')
     f1_ax8 = fig1.add_subplot(gs2[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_sw.precip).anomalies().plotvar(ax=f1_ax8,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Precipitation')
+                                   title='')
     f1_ax9 = fig1.add_subplot(gs2[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_sw.precip).anomalies().plotvar(ax=f1_ax9,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{SW}$ Precipitation')
+                                   title='')
     # Precip Colorbars
     f1_ax10 = fig1.add_subplot(gs2[1, 0])
     plt.colorbar(im,cax=f1_ax10, orientation='horizontal',label='mm/day',
@@ -102,29 +145,72 @@ def plot_fig1_seascyc_sw(nlev=100):
     gs1=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.95,bottom=0.55)
+                         top=0.97,bottom=0.52,
+                         left=0.1,right=0.95)
     gs2=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.45,bottom=0.05)
+                         top=0.46,bottom=0.01,
+                         left=0.1,right=0.95)
+    gs3=fig1.add_gridspec(ncols=1, nrows=2,
+                          hspace=hspace,
+                         left=0.05,right=0.1)
+    gs4=fig1.add_gridspec(ncols=ncols, nrows=1,
+                         wspace=wspace,
+                         top=0.99,bottom=0.95,
+                         left=0.1,right=0.95)
+    # PLOT TITLES
+    f1_axt1 = fig1.add_subplot(gs4[0, 0])
+    plt.text(0.5,0,"2xCO2",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axt2 = fig1.add_subplot(gs4[0, 1])
+    plt.text(0.5,0,"Homogeneous SRM$_{SW}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axtt3 = fig1.add_subplot(gs4[0, 2])
+    plt.text(0.5,0,"Localized SRM$_{SW}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)     
+    plt.axis('off')                                     
+    # VARIABLE TITLES  
+    f1_ax1 = fig1.add_subplot(gs3[0, 0])
+    plt.text(0.3,0.7,"SURFACE\nTEMPERATURE",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)
+    plt.axis('off')
+    f1_ax1 = fig1.add_subplot(gs3[1, 0])             
+    plt.text(0.3,0.42,"PRECIPITATION",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)             
+    plt.axis('off')   
     # TSURF  
     f1_ax1 = fig1.add_subplot(gs1[0, 0],projection=ccrs.Robinson())
     im=fun(co2x2.tsurf).anomalies().plotvar(ax=f1_ax1,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Surface Temperature',
+                                   title='',
                                    statistics="rms")
     f1_ax2 = fig1.add_subplot(gs1[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_sw.tsurf).anomalies().plotvar(ax=f1_ax2,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Surface Temperature',
+                                   title='',
                                    statistics="rms")
     f1_ax3 = fig1.add_subplot(gs1[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_sw.tsurf).anomalies().plotvar(ax=f1_ax3,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{SW}$ Surface Temperature',
+                                   title='',
                                    statistics="rms")
     # Tsurf Colorbars
     f1_ax4 = fig1.add_subplot(gs1[1, 0:])
@@ -136,19 +222,19 @@ def plot_fig1_seascyc_sw(nlev=100):
     im=fun(co2x2.precip).anomalies().plotvar(ax=f1_ax7,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Precipitation',
+                                   title='',
                                    statistics="rms")
     f1_ax8 = fig1.add_subplot(gs2[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_sw.precip).anomalies().plotvar(ax=f1_ax8,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Precipitation',
+                                   title='',
                                    statistics="rms")
     f1_ax9 = fig1.add_subplot(gs2[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_sw.precip).anomalies().plotvar(ax=f1_ax9,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{SW}$ Precipitation',
+                                   title='',
                                    statistics="rms")
     # Precip Colorbars
     f1_ax10 = fig1.add_subplot(gs2[1, 0:])
@@ -168,28 +254,71 @@ def plot_fig1_amean_cld(nlev=100):
     gs1=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.95,bottom=0.55)
+                         top=0.97,bottom=0.52,
+                         left=0.1,right=0.95)
     gs2=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.45,bottom=0.05)
+                         top=0.46,bottom=0.01,
+                         left=0.1,right=0.95)
+    gs3=fig1.add_gridspec(ncols=1, nrows=2,
+                          hspace=hspace,
+                         left=0.05,right=0.1)
+    gs4=fig1.add_gridspec(ncols=ncols, nrows=1,
+                         wspace=wspace,
+                         top=0.99,bottom=0.95,
+                         left=0.1,right=0.95)
+    # PLOT TITLES
+    f1_axt1 = fig1.add_subplot(gs4[0, 0])
+    plt.text(0.5,0,"2xCO2",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axt2 = fig1.add_subplot(gs4[0, 1])
+    plt.text(0.5,0,"Homogeneous SRM$_{CLD}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axtt3 = fig1.add_subplot(gs4[0, 2])
+    plt.text(0.5,0,"Localized SRM$_{CLD}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)     
+    plt.axis('off')                                     
+    # VARIABLE TITLES  
+    f1_ax1 = fig1.add_subplot(gs3[0, 0])
+    plt.text(0.3,0.7,"SURFACE\nTEMPERATURE",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)
+    plt.axis('off')
+    f1_ax1 = fig1.add_subplot(gs3[1, 0])             
+    plt.text(0.3,0.42,"PRECIPITATION",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)             
+    plt.axis('off')   
     # TSURF  
     f1_ax1 = fig1.add_subplot(gs1[0, 0],projection=ccrs.Robinson())
     im=fun(co2x2.tsurf).anomalies().plotvar(ax=f1_ax1,
                                    levels=np.linspace(1,5,nlev),
                                    cmap=my.Colormaps.seq_tsurf_hot,
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Surface Temperature')
+                                   title='')
     f1_ax2 = fig1.add_subplot(gs1[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_cld.tsurf).anomalies().plotvar(ax=f1_ax2,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Surface Temperature')
+                                   title='')
     f1_ax3 = fig1.add_subplot(gs1[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_cld.tsurf).anomalies().plotvar(ax=f1_ax3,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{CLD}$ Surface Temperature')
+                                   title='')
     # Tsurf Colorbars
     f1_ax4 = fig1.add_subplot(gs1[1, 0])
     plt.colorbar(im,cax=f1_ax4, orientation='horizontal',label='K',
@@ -203,17 +332,17 @@ def plot_fig1_amean_cld(nlev=100):
                                    levels=np.linspace(0,1.5,nlev),
                                    cmap=my.Colormaps.seq_precip_wet,
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Precipitation')
+                                   title='')
     f1_ax8 = fig1.add_subplot(gs2[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_cld.precip).anomalies().plotvar(ax=f1_ax8,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Precipitation')
+                                   title='')
     f1_ax9 = fig1.add_subplot(gs2[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_cld.precip).anomalies().plotvar(ax=f1_ax9,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{CLD}$ Precipitation')
+                                   title='')
     # Precip Colorbars
     f1_ax10 = fig1.add_subplot(gs2[1, 0])
     plt.colorbar(im,cax=f1_ax10, orientation='horizontal',label='mm/day',
@@ -234,29 +363,72 @@ def plot_fig1_seascyc_cld(nlev=100):
     gs1=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.95,bottom=0.55)
+                         top=0.97,bottom=0.52,
+                         left=0.1,right=0.95)
     gs2=fig1.add_gridspec(ncols=ncols, nrows=nrows,
                          height_ratios=heights,
                          wspace=wspace, hspace=hspace,
-                         top=0.45,bottom=0.05)
+                         top=0.46,bottom=0.01,
+                         left=0.1,right=0.95)
+    gs3=fig1.add_gridspec(ncols=1, nrows=2,
+                          hspace=hspace,
+                         left=0.05,right=0.1)
+    gs4=fig1.add_gridspec(ncols=ncols, nrows=1,
+                         wspace=wspace,
+                         top=0.99,bottom=0.95,
+                         left=0.1,right=0.95)
+    # PLOT TITLES
+    f1_axt1 = fig1.add_subplot(gs4[0, 0])
+    plt.text(0.5,0,"2xCO2",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axt2 = fig1.add_subplot(gs4[0, 1])
+    plt.text(0.5,0,"Homogeneous SRM$_{CLD}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)
+    plt.axis('off')             
+    f1_axtt3 = fig1.add_subplot(gs4[0, 2])
+    plt.text(0.5,0,"Localized SRM$_{CLD}$",
+             horizontalalignment = "center",
+             verticalalignment = "bottom",
+             fontsize=16)     
+    plt.axis('off')                                     
+    # VARIABLE TITLES  
+    f1_ax1 = fig1.add_subplot(gs3[0, 0])
+    plt.text(0.3,0.7,"SURFACE\nTEMPERATURE",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)
+    plt.axis('off')
+    f1_ax1 = fig1.add_subplot(gs3[1, 0])             
+    plt.text(0.3,0.42,"PRECIPITATION",
+             horizontalalignment = "center",
+             verticalalignment = "center",
+             rotation=90,
+             fontsize=16)             
+    plt.axis('off')   
     # TSURF  
     f1_ax1 = fig1.add_subplot(gs1[0, 0],projection=ccrs.Robinson())
     im=fun(co2x2.tsurf).anomalies().plotvar(ax=f1_ax1,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Surface Temperature',
+                                   title='',
                                    statistics="rms")
     f1_ax2 = fig1.add_subplot(gs1[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_cld.tsurf).anomalies().plotvar(ax=f1_ax2,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Surface Temperature',
+                                   title='',
                                    statistics="rms")
     f1_ax3 = fig1.add_subplot(gs1[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_cld.tsurf).anomalies().plotvar(ax=f1_ax3,
                                    levels=np.linspace(-1,1,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{CLD}$ Surface Temperature',
+                                   title='',
                                    statistics="rms")
     # Tsurf Colorbars
     f1_ax4 = fig1.add_subplot(gs1[1, 0:])
@@ -268,19 +440,19 @@ def plot_fig1_seascyc_cld(nlev=100):
     im=fun(co2x2.precip).anomalies().plotvar(ax=f1_ax7,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='Abrupt2xCO2 Precipitation',
+                                   title='',
                                    statistics="rms")
     f1_ax8 = fig1.add_subplot(gs2[0, 1],projection=ccrs.Robinson())
     im2=fun(homogeneous_cld.precip).anomalies().plotvar(ax=f1_ax8,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='Homogeneous Precipitation',
+                                   title='',
                                    statistics="rms")
     f1_ax9 = fig1.add_subplot(gs2[0, 2],projection=ccrs.Robinson())
     im3=fun(srm_cld.precip).anomalies().plotvar(ax=f1_ax9,
                                    levels=np.linspace(-0.5,0.5,nlev),
                                    add_colorbar=False,
-                                   title='SRM$_{CLD}$ Precipitation',
+                                   title='',
                                    statistics="rms")
     # Precip Colorbars
     f1_ax10 = fig1.add_subplot(gs2[1, 0:])

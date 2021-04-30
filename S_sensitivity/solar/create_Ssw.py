@@ -67,10 +67,10 @@ def main(bound):
     sel_JJA = lambda x: x.sel(time=slice(6,8),lat=slice(l[0],l[1]),lon=slice(ll[0],ll[1]))
     sel_SON = lambda x: x.sel(time=slice(9,11),lat=slice(l[0],l[1]),lon=slice(ll[0],ll[1]))
     
-    S_DJF=sel_DJF(dt_DJF/dsw_DJF).roll(time=1,roll_coords=True)
-    S_MAM=sel_MAM(dt_MAM/dsw_MAM)
-    S_JJA=sel_JJA(dt_JJA/dsw_JJA)
-    S_SON=sel_SON(dt_SON/dsw_SON)
+    S_DJF=sel_DJF((dt_DJF/dsw_DJF).where(dsw_DJF!=0,0)).roll(time=1,roll_coords=True)
+    S_MAM=sel_MAM((dt_MAM/dsw_MAM).where(dsw_MAM!=0,0))
+    S_JJA=sel_JJA((dt_JJA/dsw_JJA).where(dsw_JJA!=0,0))
+    S_SON=sel_SON((dt_SON/dsw_SON).where(dsw_SON!=0,0))
 
     S=xr.concat([S_DJF,S_MAM,S_JJA,S_SON],dim="time").roll(time=-1,roll_coords=True)
     S.name="S"

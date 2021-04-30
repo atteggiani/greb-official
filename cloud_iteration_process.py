@@ -5,8 +5,6 @@ import numpy as np
 import os
 from argparse import ArgumentParser
 
-t_init_fname = greb.output_folder()+'/scenario.exp-930.geoeng.2xCO2.cld.artificial.frominput_x1.1_50yrs'
-
 # PARSE ARGUMENTS
 parser=ArgumentParser()
 parser.add_argument('--it',type=int)

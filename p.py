@@ -10,4 +10,11 @@ import os
 from argparse import ArgumentParser
 import matplotlib.cm as cm
 
-greb.create_solar(value=lambda x:x*0.5,tridimensional=True,outpath=os.path.join(greb.solar_folder(),"test3D"))
+a=greb.from_binary("/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.2xCO2.sw.artificial.iter5_0.3corr_50yrs.bin")
+
+
+a.tsurf.annual_mean().anomalies().plotvar(levels=np.linspace(-1,1,50),du=0.2,
+    outpath=os.path.join(greb.figures_folder(),"sw_iter5_0.3corr_tsurf.png"))
+
+a.precip.annual_mean().anomalies().plotvar(levels=np.linspace(-0.5,0.5,50),du=0.25,
+    outpath=os.path.join(greb.figures_folder(),"sw_iter5_0.3corr_precip.png"))    

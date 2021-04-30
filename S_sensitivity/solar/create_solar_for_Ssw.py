@@ -26,7 +26,7 @@ def window(seq, n=2):
         yield result
 
 def main(bound):
-    val=0.2
+    val=0.98
     l,ll = bound[0],bound[1]
     sw_name = 'sw.artificial.lat.{:.0f}_{:.0f}lon.{:.0f}_{:.0f}'.format(l[0],l[1],ll[0],ll[1])
     greb.create_solar(latitude=l, longitude=ll,

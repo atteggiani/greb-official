@@ -1,5 +1,6 @@
 #!/bin/bash
 export PYTHONWARNINGS='ignore:semaphore_tracker:UserWarning'
+num_parallel_run=10
 exp_num=931
 base_dir=/Users/dmar0022/university/phd/greb-official
 output_dir=$base_dir/output
@@ -40,7 +41,6 @@ echo "Creating Solar for S..."
 python $base_dir/S_sensitivity/solar/create_solar_for_Ssw.py --nlat $nlat --nlon $nlon
 
 # Run GREB experiments in parallel
-num_parallel_run=5
 n_threads=2
 echo "Running GREB experiments for ${n_year_run} years (${num_parallel_run} in parallel)..."
 files=($base_dir/artificial_solar_radiation/S_sensitivity/*.bin)

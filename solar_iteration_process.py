@@ -5,8 +5,6 @@ import numpy as np
 import os
 from argparse import ArgumentParser
 
-t_init_fname = greb.output_folder()+'/scenario.exp-931.geoeng.2xCO2.sw.artificial.frominput_x0.98_50yrs'
-
 # PARSE ARGUMENTS
 parser=ArgumentParser()
 parser.add_argument('--it',type=int)
@@ -34,8 +32,10 @@ dt = greb.from_binary(t_fname).tsurf.anomalies()
 
 ny=1
 dt = dt.isel(time=slice(-12*ny,None)).group_by('12h')
-dsw_new = -(corr/S_sw)*(dt)
-# dsw_new=dsw_new.where(S_sw!=1,0) # Correction for small S_sw
+dsw_new = -(dt/S_sw).where(S_sw!=0,0)*(corr)
+# Correction for big values of dsw_new
+dsw_new=dsw_new.where(sw_base!=0,0)
+dsw_new=dsw_new.where(np.abs(dsw_new)<=1e2,1e2)
 # If ocean_flag is active, change solar only over ocean
 if ocean_flag == "_ocean":
     new_solar = np.where(greb.land_ocean_mask(),dsw_new+sw_base,sw_base)

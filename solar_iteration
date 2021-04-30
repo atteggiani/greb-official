@@ -34,7 +34,7 @@ working_dir=${working_dir:=/Users/dmar0022/university/phd/greb-official/work}
 if ! [ -z ${ocean_flag+x} ]; then o="-o"; else o=""; fi
 # Files for 1st iteration
 tsurf=${tsurf:="/Users/dmar0022/university/phd/greb-official/output/scenario.exp-931.geoeng.2xCO2.sw.artificial.frominput_x0.98_50yrs"}
-corr=${corr:=0.15}
+corr=${corr:=0.34}
 tsurf_init=$tsurf
 sim_years=${tsurf##*_};sim_years=${sim_years%.*}
 
